@@ -1,25 +1,30 @@
 name: Release
 
-# Automatically version and release on every push to main.
+# Manual release dispatch restricted to repository owner.
 #
 # The version is computed by MinVer (see ArchiveHelper.csproj) from git tags.
-# This workflow only decides WHETHER to cut a release.
-#
-# Release policy - a release is cut only when at least one commit since the
-# last release tag is explicitly releasable:
+# This workflow inspects all commits merged since the last release tag:
 #   * "feat: ..." or "feat(scope): ..."                            -> minor bump
-#   * "fix: ..."  / "perf: ..." / "refactor: ..."                 -> patch bump
+#   * "fix: ..."  / "perf: ..." / "refactor: ...                  -> patch bump
 #   * "feat!: ..." or a "BREAKING CHANGE:" commit body             -> major bump
 #
-# Anything else does NOT trigger a release. This deliberately includes:
-#   * freeform commit messages ("Update README with ...")
-#   * docs / chore / ci / test / style / build
-# So editing the README will not publish a new build.
+# Multiple PRs can be merged into main over time, and a release will only
+# be cut when the repo owner manually triggers this workflow.
 #
 # MinVer is configured with MinVerTagPrefix=v to match the v1.2.3 tag format.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_increment:
+        description: 'Override increment type (default: auto based on commits)'
+        required: false
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
@@ -31,6 +36,7 @@ concurrency:
 
 jobs:
   release:
+    if: github.actor == github.repository_owner
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -70,6 +76,15 @@ jobs:
           $bodies   = @(git log "$lastTag..HEAD" --pretty=format:'%b')
 
           Write-Host "Commits since ${lastTag}: $($subjects.Count)"
+
+          $forceIncrement = '${{ inputs.force_increment }}'
+          if ($forceIncrement -and $forceIncrement -ne 'auto') {
+            "release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "increment=$forceIncrement" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "reason=manual dispatch override ($forceIncrement)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Manual trigger: forced increment '$forceIncrement'."
+            exit 0
+          }
 
           $releasable = @($subjects | Where-Object {
             $_ -match '^(feat|fix|perf|refactor)(\([^)]*\))?!?:'
