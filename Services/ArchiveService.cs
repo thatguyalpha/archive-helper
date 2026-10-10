@@ -54,6 +54,214 @@ namespace ArchiveHelper.Services
 
     public class ArchiveService
     {
+        public static bool IsValidZipFolderName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 251 ||
+                name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+                name.EndsWith('.') || name.EndsWith(' ')) return false;
+
+            string stem = name.Split('.')[0].TrimEnd().ToUpperInvariant();
+            return stem is not ("CON" or "PRN" or "AUX" or "NUL" or "CLOCK$" or "CONIN$" or "CONOUT$") &&
+                !(stem.Length == 4 && (stem.StartsWith("COM") || stem.StartsWith("LPT")) &&
+                  "123456789¹²³".Contains(stem[3]));
+        }
+
+        private static bool IsSameOrChildPath(string path, string directory)
+        {
+            string relative = Path.GetRelativePath(directory, path);
+            return !Path.IsPathRooted(relative) && relative != ".." &&
+                !relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal);
+        }
+
+        private static string? GetZipSelectionRoot(string[] paths)
+        {
+            string? root = Path.GetDirectoryName(paths[0]);
+            foreach (string path in paths.Skip(1))
+            {
+                string? parent = Path.GetDirectoryName(path);
+                if (parent == null) return null;
+                while (root != null && !IsSameOrChildPath(parent, root))
+                {
+                    root = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(root));
+                }
+                if (root == null) break;
+            }
+            return root;
+        }
+
+        public static string GetZipSelectionName(string[] sourcePaths)
+        {
+            if (sourcePaths.Length == 0) return "Archive";
+            var paths = sourcePaths.Select(p => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p))).ToArray();
+            string? root = GetZipSelectionRoot(paths) ?? Path.GetDirectoryName(paths[0]);
+            string name = root == null ? "Archive" : new DirectoryInfo(root).Name;
+            return IsValidZipFolderName(name) ? name : "Archive";
+        }
+
+        public Task<(bool success, string message)> ZipItemsAsync(
+            string[] sourcePaths,
+            string folderName,
+            bool deleteOriginal,
+            bool predictExt = false,
+            string? destinationDir = null,
+            bool keepMtime = true,
+            CancellationToken ct = default,
+            IProgress<FolderProgressReport>? progress = null)
+        {
+            return Task.Run(() =>
+            {
+                string? temporaryPath = null;
+                try
+                {
+                    if (!IsValidZipFolderName(folderName)) return (false, "Enter a valid zip name.");
+                    var paths = sourcePaths.Select(p => Path.TrimEndingDirectorySeparator(Path.GetFullPath(p)))
+                        .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                    if (paths.Length == 0) return (false, "No items selected.");
+                    foreach (string path in paths)
+                    {
+                        if (!Directory.Exists(path) && !File.Exists(path)) return (false, $"Item not found: {path}");
+                    }
+                    // A selected parent already includes its selected descendants.
+                    paths = paths.Where(path => !paths.Any(other =>
+                        !path.Equals(other, StringComparison.OrdinalIgnoreCase) &&
+                        Directory.Exists(other) && IsSameOrChildPath(path, other))).ToArray();
+                    var names = paths.Select(Path.GetFileName).ToArray();
+                    if (names.Any(string.IsNullOrEmpty) || names.Distinct(StringComparer.OrdinalIgnoreCase).Count() != names.Length)
+                    {
+                        return (false, "Selected items must have distinct folder or file names and cannot be drive roots.");
+                    }
+
+                    string outputDir = Path.GetFullPath(destinationDir ?? GetZipSelectionRoot(paths) ?? Path.GetDirectoryName(paths[0])!);
+                    if (paths.Any(path => Directory.Exists(path) && IsSameOrChildPath(outputDir, path)))
+                    {
+                        return (false, "Cannot output zip inside a folder being zipped.");
+                    }
+
+                    var entries = new List<(FileSystemInfo info, string name)>();
+                    foreach (string path in paths)
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (Directory.Exists(path))
+                        {
+                            var directory = new DirectoryInfo(path);
+                            entries.Add((directory, directory.Name + "/"));
+                            foreach (var info in directory.EnumerateFileSystemInfos("*", SearchOption.AllDirectories))
+                            {
+                                ct.ThrowIfCancellationRequested();
+                                string entryName = directory.Name + "/" + Path.GetRelativePath(path, info.FullName).Replace('\\', '/');
+                                entries.Add((info, info is DirectoryInfo ? entryName + "/" : entryName));
+                            }
+                        }
+                        else
+                        {
+                            entries.Add((new FileInfo(path), Path.GetFileName(path)));
+                        }
+                    }
+                    var files = entries.Select(e => e.info).OfType<FileInfo>().ToArray();
+                    string extension = ".zip";
+                    if (predictExt)
+                    {
+                        if (files.Any(f => f.Extension.Equals(".osu", StringComparison.OrdinalIgnoreCase))) extension = ".osz";
+                        else if (files.Any(f => f.Extension.Equals(".ini", StringComparison.OrdinalIgnoreCase) &&
+                            !f.Name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase))) extension = ".osk";
+                    }
+                    string zipPath = Path.Combine(outputDir, folderName + extension);
+                    if (paths.Any(path => path.Equals(zipPath, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return (false, "The output archive cannot overwrite a selected source file.");
+                    }
+                    long totalBytes = files.Sum(f => f.Length);
+                    long bytesWritten = 0;
+                    int filesWritten = 0;
+                    DateTime originalTime = entries.Max(e => e.info.LastWriteTime);
+                    DateTime lastReport = DateTime.UtcNow;
+                    void Report(string? currentFile = null) => progress?.Report(new FolderProgressReport
+                    {
+                        ItemName = folderName,
+                        BytesProcessed = bytesWritten,
+                        TotalBytes = totalBytes,
+                        FilesProcessed = filesWritten,
+                        TotalFiles = files.Length,
+                        CurrentFileName = currentFile
+                    });
+                    Report();
+
+                    Directory.CreateDirectory(outputDir);
+                    temporaryPath = Path.Combine(outputDir, $".archive-helper-{Guid.NewGuid():N}.tmp");
+                    const int bufferSize = 1024 * 1024;
+                    using (var zipFs = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, FileOptions.SequentialScan))
+                    using (var seqStream = new SequentialWriteStream(zipFs))
+                    using (var archive = new ZipArchive(seqStream, ZipArchiveMode.Create))
+                    {
+                        byte[] buffer = new byte[bufferSize];
+                        foreach (var (info, name) in entries)
+                        {
+                            ct.ThrowIfCancellationRequested();
+                            var entry = archive.CreateEntry(name, CompressionLevel.NoCompression);
+                            if (keepMtime)
+                            {
+                                var timestamp = info.LastWriteTime;
+                                entry.LastWriteTime = timestamp.Year < 1980 ? new DateTime(1980, 1, 1) :
+                                    timestamp.Year > 2107 ? new DateTime(2107, 12, 31, 23, 59, 58) : timestamp;
+                            }
+                            if (info is not FileInfo) continue;
+                            using var entryStream = entry.Open();
+                            using var fileStream = new FileStream(info.FullName, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize, FileOptions.SequentialScan);
+                            int read;
+                            while ((read = fileStream.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                ct.ThrowIfCancellationRequested();
+                                entryStream.Write(buffer, 0, read);
+                                bytesWritten += read;
+                                var now = DateTime.UtcNow;
+                                if ((now - lastReport).TotalMilliseconds >= 40)
+                                {
+                                    lastReport = now;
+                                    Report(info.Name);
+                                }
+                            }
+                            filesWritten++;
+                        }
+                    }
+                    ct.ThrowIfCancellationRequested();
+                    if (keepMtime) File.SetLastWriteTime(temporaryPath, originalTime);
+                    // Publish only a complete archive before deleting any originals.
+                    File.Move(temporaryPath, zipPath, overwrite: true);
+                    temporaryPath = null;
+                    Report();
+                    var warnings = new List<string>();
+                    if (deleteOriginal)
+                    {
+                        foreach (string path in paths)
+                        {
+                            try
+                            {
+                                if (Directory.Exists(path)) SafeDeleteDirectory(path);
+                                else SafeDeleteFile(path);
+                            }
+                            catch (Exception ex)
+                            {
+                                warnings.Add($"Could not delete {Path.GetFileName(path)}: {ex.Message}");
+                            }
+                        }
+                    }
+                    return (true, $"Zipped: {folderName}{extension}" +
+                        (warnings.Count > 0 ? $" (Warning: {string.Join("; ", warnings)})" : ""));
+                }
+                catch (Exception ex)
+                {
+                    return (false, $"Error zipping {folderName}: {ex.Message}");
+                }
+                finally
+                {
+                    if (temporaryPath != null)
+                    {
+                        try { File.Delete(temporaryPath); } catch { }
+                    }
+                }
+            }, ct);
+        }
+
         public Task<(bool success, string message)> ZipItemAsync(
             string sourcePath,
             bool deleteOriginal,

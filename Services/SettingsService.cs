@@ -10,6 +10,7 @@ namespace ArchiveHelper.Services
         public bool FastZip { get; set; } = false;
         public bool PredictExt { get; set; } = true;
         public bool KeepMtimeZip { get; set; } = true;
+        public bool SingleFolderZip { get; set; } = false;
         public bool DeleteUnzip { get; set; } = true;
         public bool FastUnzip { get; set; } = false;
         public bool KeepTopDir { get; set; } = true;

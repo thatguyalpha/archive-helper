@@ -246,7 +246,9 @@
                         <CheckBox x:Name="chkPredictExt" Content="predict ext" IsChecked="True" Margin="0"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
-                        <CheckBox x:Name="chkKeepMtimeZip" Content="keep mtime" IsChecked="True" Margin="0"/>
+                        <CheckBox x:Name="chkKeepMtimeZip" Content="keep mtime" IsChecked="True" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="chkSingleFolderZip" Content="single zip" IsChecked="False" Margin="0"
+                                  ToolTip="Zip the selection into one archive and choose its name"/>
                     </StackPanel>
                 </StackPanel>
             </Grid>
