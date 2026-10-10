@@ -1,0 +1,494 @@
+<Window x:Class="ArchiveHelper.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Archive Helper" Height="355" Width="670"
+        Icon="Assets/app.ico"
+        WindowStartupLocation="CenterScreen"
+        Background="#161616" Foreground="#FFFFFF"
+        FontFamily="Segoe UI" FontSize="13" ResizeMode="CanMinimize"
+        FocusVisualStyle="{x:Null}"
+        AllowDrop="True"
+        DragOver="Window_DragOver">
+    <Window.Resources>
+        <!-- Dark Mode CheckBox Style -->
+        <Style TargetType="CheckBox">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <BulletDecorator Background="Transparent" SnapsToDevicePixels="true">
+                            <BulletDecorator.Bullet>
+                                <Border x:Name="border" Background="#242424" BorderBrush="#4A4A4A" BorderThickness="1.5" CornerRadius="3" Width="16" Height="16" VerticalAlignment="Center">
+                                    <Path x:Name="checkMark" Data="M 2.5,7.5 L 6,11 L 13.5,3.5" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                                </Border>
+                            </BulletDecorator.Bullet>
+                            <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                        </BulletDecorator>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                                <Setter TargetName="border" Property="Background" Value="#2E2E2E"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="#007ACC"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#007ACC"/>
+                                <Setter TargetName="checkMark" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <MultiTrigger>
+                                <MultiTrigger.Conditions>
+                                    <Condition Property="IsChecked" Value="true"/>
+                                    <Condition Property="IsMouseOver" Value="true"/>
+                                </MultiTrigger.Conditions>
+                                <Setter TargetName="border" Property="Background" Value="#1A8AD4"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="#1A8AD4"/>
+                            </MultiTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Button Style (Rounded & Modern Dark Theme) -->
+        <Style TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Background" Value="#262626"/>
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="BorderBrush" Value="#3E3E3E"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="24,6"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="#333333"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="#555555"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="#1E1E1E"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="#007ACC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="btnBorder" Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Utility Button Style (36x36, 7px CornerRadius, Dark Theme) -->
+        <Style x:Key="UtilityButtonStyle" TargetType="Button">
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Background" Value="#262626"/>
+            <Setter Property="Foreground" Value="#888888"/>
+            <Setter Property="BorderBrush" Value="#3E3E3E"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="7"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="#333333"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="#555555"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="btnBorder" Property="Background" Value="#1E1E1E"/>
+                                <Setter TargetName="btnBorder" Property="BorderBrush" Value="#007ACC"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Cursor" Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Dark ScrollBar Thumb -->
+        <Style x:Key="ModernDarkScrollBarThumb" TargetType="{x:Type Thumb}">
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="IsTabStop" Value="false"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Thumb}">
+                        <Border x:Name="thumbBorder" Background="#444444" CornerRadius="2.5"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="thumbBorder" Property="Background" Value="#666666"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="true">
+                                <Setter TargetName="thumbBorder" Property="Background" Value="#888888"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Modern Dark ScrollBar Style -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="5"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="true">
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ModernDarkScrollBarThumb}" Width="5"/>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="5"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="Transparent">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="false">
+                                        <Track.Thumb>
+                                            <Thumb Style="{StaticResource ModernDarkScrollBarThumb}" Height="5"/>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Two Columns (Landscape) -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="18"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- LEFT: Drag to Zip -->
+            <Grid Grid.Column="0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border x:Name="dropZip" Grid.Row="0" Background="#202020" BorderBrush="#383838" BorderThickness="2" CornerRadius="10" AllowDrop="True"
+                        DragEnter="DropZip_DragEnter" DragOver="DropZip_DragOver" DragLeave="DropZip_DragLeave" Drop="DropZip_Drop">
+                    <Grid>
+                        <TextBlock Text="drag to zip" FontSize="22" FontWeight="SemiBold" Foreground="#EEEEEE" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                        
+                        <!-- Output Folder Target (Top-Right) -->
+                        <Border x:Name="btnFolderZip" Width="48" Height="48" CornerRadius="8"
+                                Background="#262626" BorderBrush="#3E3E3E" BorderThickness="2"
+                                HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,12,0"
+                                AllowDrop="True"
+                                ToolTip="Drop here to choose output destination folder for Zip"
+                                DragEnter="BtnFolderZip_DragEnter" DragOver="BtnFolderZip_DragOver" DragLeave="BtnFolderZip_DragLeave" Drop="BtnFolderZip_Drop">
+                            <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,2" IsHitTestVisible="False">
+                                <Path Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent">
+                                    <Path.Data>
+                                        <GeometryGroup>
+                                            <PathGeometry Figures="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z"/>
+                                            <EllipseGeometry Center="252,260" RadiusX="63" RadiusY="63"/>
+                                            <PathGeometry Figures="M 308,316 L 354,362"/>
+                                        </GeometryGroup>
+                                    </Path.Data>
+                                </Path>
+                            </Viewbox>
+                        </Border>
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <CheckBox x:Name="chkDeleteZip" Content="delete original" IsChecked="True" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="chkFastZip" Content="fast" IsChecked="False" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="chkPredictExt" Content="predict ext" IsChecked="True" Margin="0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
+                        <CheckBox x:Name="chkKeepMtimeZip" Content="keep mtime" IsChecked="True" Margin="0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- RIGHT: Drag to Unzip -->
+            <Grid Grid.Column="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border x:Name="dropUnzip" Grid.Row="0" Background="#202020" BorderBrush="#383838" BorderThickness="2" CornerRadius="10" AllowDrop="True"
+                        DragEnter="DropUnzip_DragEnter" DragOver="DropUnzip_DragOver" DragLeave="DropUnzip_DragLeave" Drop="DropUnzip_Drop">
+                    <Grid>
+                        <TextBlock Text="drag to unzip" FontSize="22" FontWeight="SemiBold" Foreground="#EEEEEE" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                        
+                        <!-- Output Folder Target (Top-Left) -->
+                        <Border x:Name="btnFolderUnzip" Width="48" Height="48" CornerRadius="8"
+                                Background="#262626" BorderBrush="#3E3E3E" BorderThickness="2"
+                                HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12,12,0,0"
+                                AllowDrop="True"
+                                ToolTip="Drop here to choose output destination folder for Unzip"
+                                DragEnter="BtnFolderUnzip_DragEnter" DragOver="BtnFolderUnzip_DragOver" DragLeave="BtnFolderUnzip_DragLeave" Drop="BtnFolderUnzip_Drop">
+                            <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,2" IsHitTestVisible="False">
+                                <Path Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent">
+                                    <Path.Data>
+                                        <GeometryGroup>
+                                            <PathGeometry Figures="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z"/>
+                                            <EllipseGeometry Center="252,260" RadiusX="63" RadiusY="63"/>
+                                            <PathGeometry Figures="M 308,316 L 354,362"/>
+                                        </GeometryGroup>
+                                    </Path.Data>
+                                </Path>
+                            </Viewbox>
+                        </Border>
+                    </Grid>
+                </Border>
+                <StackPanel Grid.Row="1" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,10,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <CheckBox x:Name="chkDeleteUnzip" Content="delete original" IsChecked="True" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="chkFastUnzip" Content="fast" IsChecked="False" Margin="0,0,10,0"/>
+                        <CheckBox x:Name="chkKeepTopDir" Content="keep top dir" IsChecked="True" Margin="0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,6,0,0">
+                        <CheckBox x:Name="chkKeepMtimeUnzip" Content="keep mtime" IsChecked="True" Margin="0"/>
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+        </Grid>
+
+        <!-- Bottom: Status, Counter & Utility Buttons -->
+        <DockPanel Grid.Row="1" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button x:Name="btnUnitMode" Style="{StaticResource UtilityButtonStyle}" Margin="0,0,6,0" Click="BtnUnitMode_Click">
+                    <Button.Resources>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#DDDDDD"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style TargetType="Rectangle">
+                            <Setter Property="Fill" Value="#DDDDDD"/>
+                            <Setter Property="Opacity" Value="0.75"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Button}}" Value="True">
+                                    <Setter Property="Fill" Value="#FFFFFF"/>
+                                    <Setter Property="Opacity" Value="1.0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Resources>
+                    <Grid Width="30" Height="28" VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="txtUnitTop" Grid.Row="0" Text="MiB"
+                                   FontFamily="Consolas, Cascadia Mono, Courier New, monospace"
+                                   FontSize="12" FontWeight="Bold"
+                                   TextOptions.TextFormattingMode="Display"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Margin="0,-1,0,0"/>
+                        <Rectangle Grid.Row="1" Height="1.2"
+                                   HorizontalAlignment="Stretch" Margin="2,0.5"/>
+                        <TextBlock x:Name="txtUnitBottom" Grid.Row="2" Text="GiB"
+                                   FontFamily="Consolas, Cascadia Mono, Courier New, monospace"
+                                   FontSize="12" FontWeight="Bold"
+                                   TextOptions.TextFormattingMode="Display"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Margin="0,0,0,-1"/>
+                    </Grid>
+                </Button>
+                <Button x:Name="btnAdmin" Style="{StaticResource UtilityButtonStyle}" Margin="0,0,6,0" Click="BtnAdmin_Click">
+                    <Viewbox Width="18" Height="18" Stretch="Uniform" IsHitTestVisible="False">
+                        <Path x:Name="iconAdmin" StrokeLineJoin="Round"/>
+                    </Viewbox>
+                </Button>
+                <Button x:Name="btnAlwaysOnTop" Style="{StaticResource UtilityButtonStyle}" Margin="0,0,6,0" Click="BtnAlwaysOnTop_Click">
+                    <Viewbox x:Name="viewboxAlwaysOnTop" Width="20" Height="20" Stretch="Uniform" IsHitTestVisible="False">
+                        <Canvas Width="640" Height="640">
+                            <Path x:Name="iconAlwaysOnTop" Fill="#FFFFFF" Opacity="0.55"/>
+                        </Canvas>
+                    </Viewbox>
+                </Button>
+                <Button x:Name="btnExit" Style="{StaticResource UtilityButtonStyle}" ToolTip="Exit" Click="BtnExit_Click">
+                    <Viewbox Width="18" Height="18" Stretch="Uniform" IsHitTestVisible="False" Margin="-2,0,2,0">
+                        <Path Fill="#FFFFFF" Data="M 172.68 25.92 C 261.84 25.89 351.00 25.89 440.17 25.92 C 440.21 154.65 440.15 283.38 440.19 412.11 C 351.01 412.05 261.83 412.16 172.65 412.05 C 172.67 387.38 172.60 362.70 172.68 338.03 C 182.90 338.01 193.12 338.02 203.34 338.02 C 203.40 352.48 203.24 366.94 203.42 381.39 C 271.89 381.21 340.36 381.54 408.82 381.23 C 363.55 366.30 318.28 351.36 273.00 336.46 C 272.98 258.16 273.01 179.87 272.99 101.58 C 318.33 86.58 363.67 71.61 409.04 56.72 C 340.49 56.57 271.94 56.76 203.39 56.62 C 203.22 71.08 203.37 85.54 203.32 100.00 C 193.10 100.00 182.88 100.00 172.66 100.00 C 172.67 75.31 172.64 50.62 172.68 25.92 M 293.47 207.37 C 287.91 211.38 287.53 219.57 289.65 225.57 C 290.66 228.87 294.06 232.63 297.81 230.88 C 301.96 228.69 303.10 223.52 303.33 219.21 C 303.21 215.19 302.36 210.61 299.05 207.94 C 297.56 206.61 295.17 206.15 293.47 207.37 Z M 148.81 130.31 C 181.71 159.86 214.60 189.43 247.48 219.00 C 214.61 248.62 181.68 278.17 148.79 307.76 C 148.91 290.29 148.77 272.83 148.86 255.36 C 112.47 255.52 76.08 255.35 39.68 255.44 C 39.63 231.15 39.74 206.85 39.69 182.55 C 76.08 182.60 112.46 182.47 148.85 182.62 C 148.77 165.18 148.84 147.74 148.81 130.31 Z"/>
+                    </Viewbox>
+                </Button>
+            </StackPanel>
+            <!-- Bottom Left: Global Ring (44x44) & Counter (Status removed) -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                <!-- Global Progress Ring Container (Hover target for Queue Popup) -->
+                <Grid x:Name="globalProgressContainer" Background="Transparent" VerticalAlignment="Center" Margin="0,0,10,0"
+                      Visibility="Visible" Cursor="Hand"
+                      MouseEnter="GlobalProgress_MouseEnter" MouseLeave="GlobalProgress_MouseLeave" MouseLeftButtonUp="GlobalProgress_Click">
+                    <Canvas Width="44" Height="44">
+                        <!-- Completed State: Filled center hole inside the rings with white checkmark -->
+                        <Grid x:Name="gridGlobalCompleted" Width="44" Height="44" Opacity="0" Visibility="Collapsed">
+                            <Ellipse x:Name="ellipseGlobalFill" Width="28" Height="28" Fill="#007ACC" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Path Data="M 0,5.3 L 4.1,9.6 L 12.0,0" Stroke="#FFFFFF" StrokeThickness="2.2"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <!-- Unhighlighted Background Tracks (Always visible) -->
+                        <Canvas x:Name="canvasGlobalTracks" Width="44" Height="44">
+                            <!-- Outer Track: Bytes (44x44, center 22,22, radius 19.8, thickness 4.4) -->
+                            <Ellipse Width="44" Height="44" Stroke="#262626" StrokeThickness="4.4"/>
+                            <!-- Inner Track: Files (35.2x35.2 at 4.4,4.4, center 22,22, radius 15.7, thickness 3.8) -->
+                            <Ellipse Width="35.2" Height="35.2" Canvas.Left="4.4" Canvas.Top="4.4" Stroke="#241730" StrokeThickness="3.8"/>
+                        </Canvas>
+
+                        <!-- Highlights: Progress Arcs (Fade out when completed) -->
+                        <Canvas x:Name="canvasGlobalHighlights" Width="44" Height="44">
+                            <Path x:Name="pathGlobalBytes" Stroke="#007ACC" StrokeThickness="4.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            <Path x:Name="pathGlobalFiles" Stroke="#B026FF" StrokeThickness="3.8" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                        </Canvas>
+                    </Canvas>
+                </Grid>
+                <TextBlock x:Name="txtCounter" Text="" Foreground="#61AFEF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <StackPanel x:Name="panelBottomSummary" Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0,0,0" Visibility="Collapsed">
+                    <TextBlock x:Name="txtBottomSummaryBytes" Text="" Foreground="#61AFEF" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="txtBottomSummaryFiles" Text="" Foreground="#C084FC" FontSize="18" FontWeight="SemiBold" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Queue Flyout Popup Overlay (Mockup-accurate, floats right above status area) -->
+        <Border x:Name="popupQueue"
+                Grid.RowSpan="2"
+                Width="345" MaxHeight="220"
+                Background="#181818" BorderBrush="#383838" BorderThickness="1.5"
+                CornerRadius="10" Padding="12,10"
+                HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                Margin="0,0,0,58"
+                Visibility="Collapsed" Opacity="0"
+                Panel.ZIndex="9999"
+                MouseEnter="PopupQueue_MouseEnter" MouseLeave="PopupQueue_MouseLeave">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="16" ShadowDepth="4" Direction="270" Opacity="0.5" Color="#000000"/>
+            </Border.Effect>
+            <!-- Scrollable Items List (Top bar removed, full space for items) -->
+            <ScrollViewer MaxHeight="200" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl x:Name="icQueueItems">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3,12,3">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="24"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Progress Indicator: Rings fade into whole solid circle with checkmark when completed -->
+                                    <Grid Grid.Column="0" Width="20" Height="20" VerticalAlignment="Center">
+                                        <!-- Concentric Progress Rings (Fades out when completed) -->
+                                        <Canvas x:Name="canvasRings" Width="20" Height="20" IsHitTestVisible="False">
+                                            <!-- Outer Track: Bytes (radius 8.9, thickness 2.2) -->
+                                            <Ellipse Width="20" Height="20" Stroke="#262626" StrokeThickness="2.2"/>
+                                            <Path Data="{Binding OuterArcGeometry}" Stroke="{Binding ArcBrush}" StrokeThickness="2.2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                            <!-- Inner Track: Files (radius 6.8, thickness 2.0) -->
+                                            <Ellipse Width="15.6" Height="15.6" Canvas.Left="2.2" Canvas.Top="2.2" Stroke="#241730" StrokeThickness="2.0"/>
+                                            <Path Data="{Binding InnerArcGeometry}" Stroke="{Binding InnerBrush}" StrokeThickness="2.0" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Canvas>
+
+                                        <!-- Completed State: Whole solid circle with clean white checkmark (Fades in when completed) -->
+                                        <Grid x:Name="gridCompleted" Width="20" Height="20" Opacity="0" IsHitTestVisible="False">
+                                            <Ellipse Width="20" Height="20" Fill="{Binding FillBrush}"/>
+                                            <Path Data="M 0,3.8 L 2.9,6.9 L 8.6,0" Stroke="#FFFFFF" StrokeThickness="1.6"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Grid>
+
+                                    <!-- Item Name (no hover tooltip) -->
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="#E0E0E0" FontSize="12"
+                                               VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="6,0,8,0"/>
+                                    <!-- Item Size & Files Progress -->
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding SizeText}" Foreground="#AAAAAA" FontSize="11"
+                                                   FontFamily="Segoe UI, Consolas"/>
+                                        <TextBlock Text="{Binding FilesText}" Foreground="#C084FC" FontSize="11"
+                                                   FontFamily="Segoe UI, Consolas" Margin="5,0,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="canvasRings" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.25"/>
+                                                    <DoubleAnimation Storyboard.TargetName="gridCompleted" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.25"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="canvasRings" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.1"/>
+                                                    <DoubleAnimation Storyboard.TargetName="gridCompleted" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                        <Setter TargetName="canvasRings" Property="Opacity" Value="0.0"/>
+                                        <Setter TargetName="gridCompleted" Property="Opacity" Value="1.0"/>
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+        </Border>
+    </Grid>
+</Window>
