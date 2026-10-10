@@ -75,11 +75,13 @@ jobs:
             $_ -match '^(feat|fix|perf|refactor)(\([^)]*\))?!?:'
           })
 
+          # (?m) is required: git log concatenates every commit body into a single
+          # string, so without it "^" only matches the oldest commit's body.
           $breaking = @($subjects | Where-Object {
             $_ -match '^[a-zA-Z]+(\([^)]*\))?!:'
           }).Count -gt 0
           $breaking = $breaking -or (@($bodies | Where-Object {
-            $_ -match '^\s*BREAKING[ -]CHANGE:'
+            $_ -match '(?m)^\s*BREAKING[ -]CHANGE:'
           }).Count -gt 0)
 
           if ($releasable.Count -eq 0 -and -not $breaking) {
@@ -90,9 +92,20 @@ jobs:
             exit 0
           }
 
+          # MinVer never reads commit messages, so it cannot pick the increment on
+          # its own. Choose it here and hand it over via -p:MinVerAutoIncrement.
+          $feature = @($subjects | Where-Object {
+            $_ -match '^feat(\([^)]*\))?!?:'
+          }).Count -gt 0
+
+          if ($breaking)    { $increment = 'major' }
+          elseif ($feature) { $increment = 'minor' }
+          else              { $increment = 'patch' }
+
           "release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "reason=$($releasable.Count) releasable commit(s)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Found $($releasable.Count) releasable commit(s) since ${lastTag}."
+          "increment=$increment" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "reason=$($releasable.Count) releasable commit(s), $increment bump" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found $($releasable.Count) releasable commit(s) since ${lastTag}; $increment bump."
 
       - name: Compute version with MinVer
         id: version
@@ -104,7 +117,9 @@ jobs:
           # MinVer returns e.g. "0.1.0-alpha.0.3" while there are unreleased
           # commits. Strip the prerelease suffix: the tag we create IS the
           # release, so the committed version is what we publish.
-          $computed = (dotnet msbuild ArchiveHelper.csproj -t:MinVer -getProperty:MinVerVersion -nologo | Out-String).Trim()
+          # MinVer's default is to increment the patch. The increment chosen in
+          # the "Decide whether to release" step is what actually drives major/minor.
+          $computed = (dotnet msbuild ArchiveHelper.csproj -t:MinVer -getProperty:MinVerVersion "-p:MinVerAutoIncrement=${{ steps.decide.outputs.increment }}" -nologo | Out-String).Trim()
           Write-Host "MinVer computed: $computed"
 
           $version = ($computed -split '-')[0].Trim()
