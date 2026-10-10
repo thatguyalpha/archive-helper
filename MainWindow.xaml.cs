@@ -84,6 +84,8 @@ namespace ArchiveHelper
                 chkPredictExt.Unchecked += (s, e) => SaveSettings();
                 chkKeepMtimeZip.Checked += (s, e) => SaveSettings();
                 chkKeepMtimeZip.Unchecked += (s, e) => SaveSettings();
+                chkSingleFolderZip.Checked += (s, e) => SaveSettings();
+                chkSingleFolderZip.Unchecked += (s, e) => SaveSettings();
 
                 chkDeleteUnzip.Checked += (s, e) => SaveSettings();
                 chkDeleteUnzip.Unchecked += (s, e) => SaveSettings();
@@ -427,6 +429,7 @@ namespace ArchiveHelper
             chkFastZip.IsChecked = _settings.FastZip;
             chkPredictExt.IsChecked = _settings.PredictExt;
             chkKeepMtimeZip.IsChecked = _settings.KeepMtimeZip;
+            chkSingleFolderZip.IsChecked = _settings.SingleFolderZip;
 
             chkDeleteUnzip.IsChecked = _settings.DeleteUnzip;
             chkFastUnzip.IsChecked = _settings.FastUnzip;
@@ -443,6 +446,7 @@ namespace ArchiveHelper
             _settings.FastZip = chkFastZip.IsChecked == true;
             _settings.PredictExt = chkPredictExt.IsChecked == true;
             _settings.KeepMtimeZip = chkKeepMtimeZip.IsChecked == true;
+            _settings.SingleFolderZip = chkSingleFolderZip.IsChecked == true;
 
             _settings.DeleteUnzip = chkDeleteUnzip.IsChecked == true;
             _settings.FastUnzip = chkFastUnzip.IsChecked == true;
@@ -1128,6 +1132,12 @@ namespace ArchiveHelper
             var validItems = rawItems.Where(p => Directory.Exists(p) || File.Exists(p)).ToArray();
             if (validItems.Length == 0) return;
 
+            if (chkSingleFolderZip.IsChecked == true)
+            {
+                await ProcessSingleFolderZipAsync(validItems, destinationDir);
+                return;
+            }
+
             _isBusy = true;
             ResetGlobalCompletedAnimation();
             bool deleteOriginal = chkDeleteZip.IsChecked == true;
@@ -1241,6 +1251,60 @@ namespace ArchiveHelper
             }
             catch (Exception)
             {
+            }
+            finally
+            {
+                _isBusy = false;
+            }
+        }
+
+        private async Task ProcessSingleFolderZipAsync(string[] items, string? destinationDir)
+        {
+            _isBusy = true;
+            try
+            {
+                var dialog = new SingleFolderNameDialog(ArchiveService.GetZipSelectionName(items))
+                {
+                    Owner = this,
+                    Topmost = Topmost
+                };
+                dialog.Resources.MergedDictionaries.Add(Resources);
+                if (dialog.ShowDialog() != true) return;
+
+                bool deleteOriginal = chkDeleteZip.IsChecked == true;
+                bool predictExt = chkPredictExt.IsChecked == true;
+                bool keepMtime = chkKeepMtimeZip.IsChecked == true;
+                ResetGlobalCompletedAnimation();
+                var queueItem = new OperationQueueItem
+                {
+                    Name = dialog.FolderName,
+                    IsZip = true,
+                    Status = OperationItemStatus.Processing
+                };
+                _queueItems.Clear();
+                _queueItems.Add(queueItem);
+                txtCounter.Text = "0/1";
+                UpdateGlobalProgress(isZip: true);
+
+                var progress = new DispatcherProgress<FolderProgressReport>(Dispatcher, report =>
+                {
+                    queueItem.SetProgress(report.BytesProcessed, report.TotalBytes, report.FilesProcessed, report.TotalFiles);
+                    UpdateGlobalProgress(isZip: true);
+                });
+                var (success, message) = await _archiveService.ZipItemsAsync(
+                    items, dialog.FolderName, deleteOriginal, predictExt, destinationDir, keepMtime,
+                    progress: progress);
+                queueItem.Status = success ? OperationItemStatus.Completed : OperationItemStatus.Failed;
+                txtCounter.Text = "1/1";
+                UpdateGlobalProgress(isZip: true);
+                if (success)
+                {
+                    ShowGlobalCompletedAnimation(isZip: true);
+                }
+                if (!success || message.Contains("Warning:", StringComparison.Ordinal))
+                {
+                    MessageBox.Show(this, message, "Single zip", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
             }
             finally
             {
