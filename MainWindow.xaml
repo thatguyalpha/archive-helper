@@ -1,6 +1,7 @@
 <Window x:Class="ArchiveHelper.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:svg="clr-namespace:ArchiveHelper.Services"
         Title="Archive Helper" Height="355" Width="670"
         Icon="Assets/app.ico"
         WindowStartupLocation="CenterScreen"
@@ -24,7 +25,7 @@
                         <BulletDecorator Background="Transparent" SnapsToDevicePixels="true">
                             <BulletDecorator.Bullet>
                                 <Border x:Name="border" Background="#242424" BorderBrush="#4A4A4A" BorderThickness="1.5" CornerRadius="3" Width="16" Height="16" VerticalAlignment="Center">
-                                    <Path x:Name="checkMark" Data="M 2.5,7.5 L 6,11 L 13.5,3.5" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
+                                    <Path x:Name="checkMark" Data="{x:Static svg:SvgAssets.CheckMark}" Stroke="#FFFFFF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed"/>
                                 </Border>
                             </BulletDecorator.Bullet>
                             <ContentPresenter Margin="6,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
@@ -233,15 +234,7 @@
                                 ToolTip="Drop here to choose output destination folder for Zip"
                                 DragEnter="BtnFolderZip_DragEnter" DragOver="BtnFolderZip_DragOver" DragLeave="BtnFolderZip_DragLeave" Drop="BtnFolderZip_Drop">
                             <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,2" IsHitTestVisible="False">
-                                <Path Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent">
-                                    <Path.Data>
-                                        <GeometryGroup>
-                                            <PathGeometry Figures="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z"/>
-                                            <EllipseGeometry Center="252,260" RadiusX="63" RadiusY="63"/>
-                                            <PathGeometry Figures="M 308,316 L 354,362"/>
-                                        </GeometryGroup>
-                                    </Path.Data>
-                                </Path>
+                                <Path Data="{x:Static svg:SvgAssets.FolderSearch}" Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
                             </Viewbox>
                         </Border>
                     </Grid>
@@ -277,15 +270,7 @@
                                 ToolTip="Drop here to choose output destination folder for Unzip"
                                 DragEnter="BtnFolderUnzip_DragEnter" DragOver="BtnFolderUnzip_DragOver" DragLeave="BtnFolderUnzip_DragLeave" Drop="BtnFolderUnzip_Drop">
                             <Viewbox Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,2" IsHitTestVisible="False">
-                                <Path Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent">
-                                    <Path.Data>
-                                        <GeometryGroup>
-                                            <PathGeometry Figures="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z"/>
-                                            <EllipseGeometry Center="252,260" RadiusX="63" RadiusY="63"/>
-                                            <PathGeometry Figures="M 308,316 L 354,362"/>
-                                        </GeometryGroup>
-                                    </Path.Data>
-                                </Path>
+                                <Path Data="{x:Static svg:SvgAssets.FolderSearch}" Stroke="#DDDDDD" StrokeThickness="42" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
                             </Viewbox>
                         </Border>
                     </Grid>
@@ -363,7 +348,7 @@
                 </Button>
                 <Button x:Name="btnExit" Style="{StaticResource UtilityButtonStyle}" ToolTip="Exit" Click="BtnExit_Click">
                     <Viewbox Width="18" Height="18" Stretch="Uniform" IsHitTestVisible="False" Margin="-2,0,2,0">
-                        <Path Fill="#FFFFFF" Data="M 172.68 25.92 C 261.84 25.89 351.00 25.89 440.17 25.92 C 440.21 154.65 440.15 283.38 440.19 412.11 C 351.01 412.05 261.83 412.16 172.65 412.05 C 172.67 387.38 172.60 362.70 172.68 338.03 C 182.90 338.01 193.12 338.02 203.34 338.02 C 203.40 352.48 203.24 366.94 203.42 381.39 C 271.89 381.21 340.36 381.54 408.82 381.23 C 363.55 366.30 318.28 351.36 273.00 336.46 C 272.98 258.16 273.01 179.87 272.99 101.58 C 318.33 86.58 363.67 71.61 409.04 56.72 C 340.49 56.57 271.94 56.76 203.39 56.62 C 203.22 71.08 203.37 85.54 203.32 100.00 C 193.10 100.00 182.88 100.00 172.66 100.00 C 172.67 75.31 172.64 50.62 172.68 25.92 M 293.47 207.37 C 287.91 211.38 287.53 219.57 289.65 225.57 C 290.66 228.87 294.06 232.63 297.81 230.88 C 301.96 228.69 303.10 223.52 303.33 219.21 C 303.21 215.19 302.36 210.61 299.05 207.94 C 297.56 206.61 295.17 206.15 293.47 207.37 Z M 148.81 130.31 C 181.71 159.86 214.60 189.43 247.48 219.00 C 214.61 248.62 181.68 278.17 148.79 307.76 C 148.91 290.29 148.77 272.83 148.86 255.36 C 112.47 255.52 76.08 255.35 39.68 255.44 C 39.63 231.15 39.74 206.85 39.69 182.55 C 76.08 182.60 112.46 182.47 148.85 182.62 C 148.77 165.18 148.84 147.74 148.81 130.31 Z"/>
+                        <Path Fill="#FFFFFF" Data="{x:Static svg:SvgAssets.Exit}"/>
                     </Viewbox>
                 </Button>
             </StackPanel>
@@ -377,7 +362,7 @@
                         <!-- Completed State: Filled center hole inside the rings with white checkmark -->
                         <Grid x:Name="gridGlobalCompleted" Width="44" Height="44" Opacity="0" Visibility="Collapsed">
                             <Ellipse x:Name="ellipseGlobalFill" Width="28" Height="28" Fill="#007ACC" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                            <Path Data="M 0,5.3 L 4.1,9.6 L 12.0,0" Stroke="#FFFFFF" StrokeThickness="2.2"
+                            <Path Data="{x:Static svg:SvgAssets.CheckMarkComplete}" Stroke="#FFFFFF" StrokeThickness="2.2"
                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Grid>
@@ -446,7 +431,7 @@
                                         <!-- Completed State: Whole solid circle with clean white checkmark (Fades in when completed) -->
                                         <Grid x:Name="gridCompleted" Width="20" Height="20" Opacity="0" IsHitTestVisible="False">
                                             <Ellipse Width="20" Height="20" Fill="{Binding FillBrush}"/>
-                                            <Path Data="M 0,3.8 L 2.9,6.9 L 8.6,0" Stroke="#FFFFFF" StrokeThickness="1.6"
+                                            <Path Data="{x:Static svg:SvgAssets.CheckMarkCompleteSmall}" Stroke="#FFFFFF" StrokeThickness="1.6"
                                                   StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                         </Grid>

@@ -13,6 +13,10 @@
 
   <ItemGroup>
     <Resource Include="Assets\app.ico" />
+    <!-- Icon geometry: kept as real .svg files so shapes can be edited in any vector
+         tool. WPF cannot render SVG directly, so Services/SvgAssets.cs parses each
+         file's path data into a Geometry at startup. -->
+    <Resource Include="Assets\svg\*.svg" />
   </ItemGroup>
 
   <ItemGroup>
