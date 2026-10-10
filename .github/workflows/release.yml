@@ -2,16 +2,21 @@ name: Release
 
 # Automatically version and release on every push to main.
 #
-# Version bump is derived from commit messages since the last release tag:
-#   * breaking change (BREAKING CHANGE: footer, or "type(scope)!:") -> major
-#   * "feat: ..." or "feat(scope): ..."                            -> minor
-#   * any other real change (fix, perf, refactor, non-conventional) -> patch
-#   * docs/chore/ci/test/style/build only                            -> no release
+# The version is computed by MinVer (see ArchiveHelper.csproj) from git tags.
+# This workflow only decides WHETHER to cut a release.
 #
-# The first ever run publishes v0.1.0. From there: fix -> patch, feat -> minor,
-# breaking -> major (which reaches v1.0.0).
+# Release policy - a release is cut only when at least one commit since the
+# last release tag is explicitly releasable:
+#   * "feat: ..." or "feat(scope): ..."                            -> minor bump
+#   * "fix: ..."  / "perf: ..." / "refactor: ..."                 -> patch bump
+#   * "feat!: ..." or a "BREAKING CHANGE:" commit body             -> major bump
 #
-# Publish step mirrors publish.bat so the released binary matches local output.
+# Anything else does NOT trigger a release. This deliberately includes:
+#   * freeform commit messages ("Update README with ...")
+#   * docs / chore / ci / test / style / build
+# So editing the README will not publish a new build.
+#
+# MinVer is configured with MinVerTagPrefix=v to match the v1.2.3 tag format.
 on:
   push:
     branches: [main]
@@ -19,7 +24,7 @@ on:
 permissions:
   contents: write
 
-# Never run two releases at once; let a queued run finish rather than cancelling.
+# Queue releases rather than cancelling an in-flight one.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -39,81 +44,77 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Determine version bump
-        id: version
+      - name: Restore
+        run: dotnet restore
+
+      - name: Decide whether to release
+        id: decide
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
 
-          # Sort tags by version descending, not alphabetically.
+          # Sort by version descending, not alphabetically (v1.10.0 > v1.9.0).
           $lastTag = git tag --list 'v*' --sort=-v:refname | Select-Object -First 1
 
           if (-not $lastTag) {
-            # No tags yet -> first release.
-            "bump=first"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            "version=0.1.0"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            "release=true"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            Write-Host "No existing tags. Publishing first release v0.1.0."
+            # No releases yet: always publish the first one.
+            "release=true"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "reason=first release" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "No existing release tags. Publishing first release."
             exit 0
           }
 
           "last_tag=$lastTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-          $range = "$lastTag..HEAD"
-          "range=$range"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-          # Subjects and bodies of every commit since the last release.
-          $subjects = @(git log $range --pretty=format:'%s')
-          $bodies   = @(git log $range --pretty=format:'%b')
+          $subjects = @(git log "$lastTag..HEAD" --pretty=format:'%s')
+          $bodies   = @(git log "$lastTag..HEAD" --pretty=format:'%b')
 
           Write-Host "Commits since ${lastTag}: $($subjects.Count)"
 
-          # Commit types that never justify a release on their own.
-          $skipTypes = '^(docs|chore|ci|test|style|build)(\([^)]*\))?:'
+          $releasable = @($subjects | Where-Object {
+            $_ -match '^(feat|fix|perf|refactor)(\([^)]*\))?!?:'
+          })
 
-          $conventional = @($subjects | Where-Object { $_ -match '^[a-zA-Z]+(\([^)]*\))?!?:' })
-          $ignorable    = @($subjects | Where-Object { $_ -match $skipTypes })
+          $breaking = @($subjects | Where-Object {
+            $_ -match '^[a-zA-Z]+(\([^)]*\))?!:'
+          }).Count -gt 0
+          $breaking = $breaking -or (@($bodies | Where-Object {
+            $_ -match '^\s*BREAKING[ -]CHANGE:'
+          }).Count -gt 0)
 
-          $allIgnorable = ($subjects.Count -gt 0) -and ($ignorable.Count -eq $subjects.Count)
-
-          if ($subjects.Count -eq 0 -or $allIgnorable) {
-            "bump=none"      | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            "release=false"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-            Write-Host "Only docs/chore/ci/test/style/build changes since ${lastTag}. Skipping release."
+          if ($releasable.Count -eq 0 -and -not $breaking) {
+            "release=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "reason=no releasable commits" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "No feat/fix/perf/refactor commits since ${lastTag}. Skipping release."
+            foreach ($s in $subjects) { Write-Host "  - $s" }
             exit 0
           }
 
-          # Decide the bump: major beats minor beats patch.
-          $breaking = @($bodies | Where-Object { $_ -match '^\s*BREAKING[ -]CHANGE:' }).Count -gt 0
-          $breaking = $breaking -or (@($subjects | Where-Object { $_ -match '^[a-zA-Z]+(\([^)]*\))?!:' }).Count -gt 0)
-          $feature  = @($subjects | Where-Object { $_ -match '^feat(\([^)]*\))?:' }).Count -gt 0
+          "release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "reason=$($releasable.Count) releasable commit(s)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Found $($releasable.Count) releasable commit(s) since ${lastTag}."
 
-          if ($breaking)      { $bump = 'major' }
-          elseif ($feature)  { $bump = 'minor' }
-          else                { $bump = 'patch' }
+      - name: Compute version with MinVer
+        id: version
+        if: steps.decide.outputs.release == 'true'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
 
-          # Increment the numeric portion of the last tag.
-          $base = $lastTag.TrimStart('v')
-          $parts = $base.Split('.')
-          [int]$major = $parts[0]
-          [int]$minor = if ($parts.Count -gt 1) { $parts[1] } else { 0 }
-          [int]$patch = if ($parts.Count -gt 2) { $parts[2] } else { 0 }
+          # MinVer returns e.g. "0.1.0-alpha.0.3" while there are unreleased
+          # commits. Strip the prerelease suffix: the tag we create IS the
+          # release, so the committed version is what we publish.
+          $computed = (dotnet msbuild ArchiveHelper.csproj -t:MinVer -getProperty:MinVerVersion -nologo | Out-String).Trim()
+          Write-Host "MinVer computed: $computed"
 
-          switch ($bump) {
-            'major' { $major++; $minor = 0; $patch = 0 }
-            'minor' { $minor++; $patch = 0 }
-            'patch' { $patch++ }
-          }
+          $version = ($computed -split '-')[0].Trim()
 
-          $newVersion = "$major.$minor.$patch"
-
-          "bump=$bump"                     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "version=$newVersion"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "release=true"                   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Detected ${bump} bump. ${lastTag} -> v${newVersion}"
+          "version=$version"       | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "computed=$computed"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Publishing version: v$version"
 
       - name: Publish single-file executable
-        if: steps.version.outputs.release == 'true'
+        if: steps.decide.outputs.release == 'true'
         run: >
           dotnet publish
           -c Release
@@ -123,7 +124,7 @@ jobs:
           -o ./publish
 
       - name: Create GitHub Release and attach exe
-        if: steps.version.outputs.release == 'true'
+        if: steps.decide.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
@@ -134,7 +135,8 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          Write-Host "last_tag:  ${{ steps.version.outputs.last_tag }}"
-          Write-Host "bump:      ${{ steps.version.outputs.bump }}"
+          Write-Host "last tag:  ${{ steps.version.outputs.last_tag }}"
+          Write-Host "reason:    ${{ steps.decide.outputs.reason }}"
+          Write-Host "minver:    ${{ steps.version.outputs.computed }}"
           Write-Host "version:   ${{ steps.version.outputs.version }}"
-          Write-Host "release:   ${{ steps.version.outputs.release }}"
+          Write-Host "release:   ${{ steps.decide.outputs.release }}"
