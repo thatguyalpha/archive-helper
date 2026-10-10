@@ -1,13 +1,28 @@
 name: Release
 
-# On a version tag (e.g. v1.0.0), publish the single-file .exe to a GitHub Release.
-# This mirrors publish.bat so the released binary matches local output.
+# Automatically version and release on every push to main.
+#
+# Version bump is derived from commit messages since the last release tag:
+#   * breaking change (BREAKING CHANGE: footer, or "type(scope)!:") -> major
+#   * "feat: ..." or "feat(scope): ..."                            -> minor
+#   * any other real change (fix, perf, refactor, non-conventional) -> patch
+#   * docs/chore/ci/test/style/build only                            -> no release
+#
+# The first ever run publishes v0.1.0. From there: fix -> patch, feat -> minor,
+# breaking -> major (which reaches v1.0.0).
+#
+# Publish step mirrors publish.bat so the released binary matches local output.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
 
 permissions:
   contents: write
+
+# Never run two releases at once; let a queued run finish rather than cancelling.
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -15,13 +30,90 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history + tags are required to diff against the last release.
+          fetch-depth: 0
 
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
+      - name: Determine version bump
+        id: version
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          # Sort tags by version descending, not alphabetically.
+          $lastTag = git tag --list 'v*' --sort=-v:refname | Select-Object -First 1
+
+          if (-not $lastTag) {
+            # No tags yet -> first release.
+            "bump=first"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "version=0.1.0"   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "release=true"    | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "No existing tags. Publishing first release v0.1.0."
+            exit 0
+          }
+
+          "last_tag=$lastTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          $range = "$lastTag..HEAD"
+          "range=$range"     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          # Subjects and bodies of every commit since the last release.
+          $subjects = @(git log $range --pretty=format:'%s')
+          $bodies   = @(git log $range --pretty=format:'%b')
+
+          Write-Host "Commits since ${lastTag}: $($subjects.Count)"
+
+          # Commit types that never justify a release on their own.
+          $skipTypes = '^(docs|chore|ci|test|style|build)(\([^)]*\))?:'
+
+          $conventional = @($subjects | Where-Object { $_ -match '^[a-zA-Z]+(\([^)]*\))?!?:' })
+          $ignorable    = @($subjects | Where-Object { $_ -match $skipTypes })
+
+          $allIgnorable = ($subjects.Count -gt 0) -and ($ignorable.Count -eq $subjects.Count)
+
+          if ($subjects.Count -eq 0 -or $allIgnorable) {
+            "bump=none"      | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            "release=false"  | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            Write-Host "Only docs/chore/ci/test/style/build changes since ${lastTag}. Skipping release."
+            exit 0
+          }
+
+          # Decide the bump: major beats minor beats patch.
+          $breaking = @($bodies | Where-Object { $_ -match '^\s*BREAKING[ -]CHANGE:' }).Count -gt 0
+          $breaking = $breaking -or (@($subjects | Where-Object { $_ -match '^[a-zA-Z]+(\([^)]*\))?!:' }).Count -gt 0)
+          $feature  = @($subjects | Where-Object { $_ -match '^feat(\([^)]*\))?:' }).Count -gt 0
+
+          if ($breaking)      { $bump = 'major' }
+          elseif ($feature)  { $bump = 'minor' }
+          else                { $bump = 'patch' }
+
+          # Increment the numeric portion of the last tag.
+          $base = $lastTag.TrimStart('v')
+          $parts = $base.Split('.')
+          [int]$major = $parts[0]
+          [int]$minor = if ($parts.Count -gt 1) { $parts[1] } else { 0 }
+          [int]$patch = if ($parts.Count -gt 2) { $parts[2] } else { 0 }
+
+          switch ($bump) {
+            'major' { $major++; $minor = 0; $patch = 0 }
+            'minor' { $minor++; $patch = 0 }
+            'patch' { $patch++ }
+          }
+
+          $newVersion = "$major.$minor.$patch"
+
+          "bump=$bump"                     | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "version=$newVersion"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "release=true"                   | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Detected ${bump} bump. ${lastTag} -> v${newVersion}"
+
       - name: Publish single-file executable
+        if: steps.version.outputs.release == 'true'
         run: >
           dotnet publish
           -c Release
@@ -31,7 +123,18 @@ jobs:
           -o ./publish
 
       - name: Create GitHub Release and attach exe
+        if: steps.version.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
           files: publish/ArchiveHelper.exe
           generate_release_notes: true
+
+      - name: Summary
+        if: always()
+        run: |
+          Write-Host "last_tag:  ${{ steps.version.outputs.last_tag }}"
+          Write-Host "bump:      ${{ steps.version.outputs.bump }}"
+          Write-Host "version:   ${{ steps.version.outputs.version }}"
+          Write-Host "release:   ${{ steps.version.outputs.release }}"
