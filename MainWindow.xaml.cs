@@ -36,16 +36,6 @@ namespace ArchiveHelper
         private static readonly Color ColorFolderBgNormal = (Color)ColorConverter.ConvertFromString("#262626");
         private static readonly Color ColorFolderBgHover = (Color)ColorConverter.ConvertFromString("#333333");
 
-        private const string AdminShieldPathData = "M 101.62,12.55 C 123.71,4.45 150.15,6.65 169.40,20.70 C 190.26,34.18 215.41,39.67 240.01,39.97 C 239.99,60.65 240.01,81.32 240.00,102.00 C 239.15,130.70 227.12,158.16 209.60,180.59 C 187.80,208.60 158.72,230.05 128.00,247.38 C 97.08,229.94 67.82,208.32 45.98,180.04 C 28.67,157.72 16.83,130.44 16.00,101.96 C 16.00,81.29 16.01,60.63 15.99,39.96 C 37.49,39.74 59.21,35.47 78.40,25.53 C 86.33,21.52 93.11,15.42 101.62,12.55 Z";
-        private const string AdminWarningPathData = "M 101.62 12.55 C 123.71 4.45 150.15 6.65 169.40 20.70 C 190.26 34.18 215.41 39.67 240.01 39.97 C 239.99 60.65 240.01 81.32 240.00 102.00 C 239.15 130.70 227.12 158.16 209.60 180.59 C 187.80 208.60 158.72 230.05 128.00 247.38 C 97.08 229.94 67.82 208.32 45.98 180.04 C 28.67 157.72 16.83 130.44 16.00 101.96 C 16.00 81.29 16.01 60.63 15.99 39.96 C 37.49 39.74 59.21 35.47 78.40 25.53 C 86.33 21.52 93.11 15.42 101.62 12.55 M 89.09 23.07 C 68.42 36.57 43.52 42.70 19.00 43.02 C 19.04 60.70 18.93 78.38 19.05 96.05 C 19.13 106.14 20.21 116.21 22.66 126.00 C 23.02 127.34 23.39 128.69 23.75 130.03 C 27.99 144.81 34.97 158.73 43.73 171.33 C 64.78 201.36 94.49 224.19 125.99 242.37 C 126.49 242.67 127.49 243.25 127.99 243.55 C 128.50 243.25 129.51 242.65 130.02 242.35 C 148.16 231.96 165.47 219.99 181.09 206.05 C 204.06 185.54 223.69 159.97 232.26 130.01 C 232.61 128.67 232.97 127.34 233.34 126.01 C 235.77 116.21 236.88 106.15 236.91 96.07 C 237.11 78.39 236.94 60.71 237.00 43.03 C 211.32 42.71 185.18 35.96 163.98 21.10 C 153.94 14.62 141.93 11.43 130.03 11.22 C 128.68 11.23 127.34 11.23 126.00 11.22 C 112.90 11.41 99.73 15.32 89.09 23.07 Z M 117 64 L 139 64 L 135 144 C 134 148 131 150 128 150 C 125 150 122 148 121 144 Z M 128 165 A 11 11 0 1 0 128 187 A 11 11 0 1 0 128 165 Z";
-        private const string ThumbtackSolidPathData = "M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z";
-        private const string ThumbtackSlashPathData = "M73 39.1C63.6 29.7 48.4 29.7 39.1 39.1C29.8 48.5 29.7 63.7 39 73.1L567 601.1C576.4 610.5 591.6 610.5 600.9 601.1C610.2 591.7 610.3 576.5 600.9 567.2L449.8 416L480 416C490 416 499.5 411.3 505.5 403.3C511.5 395.3 513.5 384.9 510.7 375.2L507 361.8C494.6 318.5 466 283.3 428.8 262.1L418.5 128L448 128C465.7 128 480 113.7 480 96C480 78.3 465.7 64 448 64L192 64C184.6 64 177.9 66.5 172.5 70.6L222.1 120.3L217.3 183.4L73 39.1zM314.2 416L181.7 283.6C159 304.1 141.9 331 133 361.9L129.2 375.3C126.4 385 128.4 395.3 134.4 403.4C140.4 411.5 150 416 160 416L314.2 416zM288 576C288 593.7 302.3 608 320 608C337.7 608 352 593.7 352 576L352 464L288 464L288 576z";
-
-        private static readonly Geometry AdminShieldGeometry = Geometry.Parse(AdminShieldPathData);
-        private static readonly Geometry AdminWarningGeometry = Geometry.Parse(AdminWarningPathData);
-        private static readonly Geometry ThumbtackSolidGeometry = Geometry.Parse(ThumbtackSolidPathData);
-        private static readonly Geometry ThumbtackSlashGeometry = Geometry.Parse(ThumbtackSlashPathData);
-
         private readonly AppSettings _settings = AppSettings.Load();
         private bool _isBusy;
         private bool _elevationFailedOnStartup;
@@ -533,7 +523,7 @@ namespace ArchiveHelper
 
             if (isAdmin)
             {
-                iconAdmin.Data = AdminShieldGeometry;
+                iconAdmin.Data = SvgAssets.Shield;
                 btnAdmin.IsEnabled = false;
                 btnAdmin.ToolTip = "Running as Administrator";
                 iconAdmin.ClearValue(System.Windows.Shapes.Shape.StrokeProperty);
@@ -543,7 +533,7 @@ namespace ArchiveHelper
             }
             else if (_elevationFailedOnStartup)
             {
-                iconAdmin.Data = AdminWarningGeometry;
+                iconAdmin.Data = SvgAssets.ShieldAlert;
                 btnAdmin.IsEnabled = true;
                 btnAdmin.ToolTip = "Administrator elevation failed on startup (Click to retry)";
                 iconAdmin.ClearValue(System.Windows.Shapes.Shape.StrokeProperty);
@@ -553,7 +543,7 @@ namespace ArchiveHelper
             }
             else
             {
-                iconAdmin.Data = AdminShieldGeometry;
+                iconAdmin.Data = SvgAssets.Shield;
                 btnAdmin.IsEnabled = true;
                 btnAdmin.ToolTip = "Restart as Administrator";
                 iconAdmin.Fill = Brushes.Transparent;
@@ -703,12 +693,12 @@ namespace ArchiveHelper
             iconAlwaysOnTop.Opacity = enable ? 1.0 : 0.55;
             if (enable)
             {
-                iconAlwaysOnTop.Data = ThumbtackSolidGeometry;
+                iconAlwaysOnTop.Data = SvgAssets.Thumbtack;
                 btnAlwaysOnTop.ToolTip = "Always on Top: On (Click to disable)";
             }
             else
             {
-                iconAlwaysOnTop.Data = ThumbtackSlashGeometry;
+                iconAlwaysOnTop.Data = SvgAssets.ThumbtackOff;
                 btnAlwaysOnTop.ToolTip = "Always on Top: Off (Click to enable)";
             }
         }
