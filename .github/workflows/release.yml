@@ -4,9 +4,9 @@ name: Release
 #
 # The version is computed by MinVer (see ArchiveHelper.csproj) from git tags.
 # This workflow inspects all commits merged since the last release tag:
-#   * "feat: ..." or "feat(scope): ..."                            -> minor bump
-#   * "fix: ..."  / "perf: ..." / "refactor: ...                  -> patch bump
+#   * "feat: ...", "fix: ...", "perf: ...", "refactor: ..."        -> patch bump
 #   * "feat!: ..." or a "BREAKING CHANGE:" commit body             -> major bump
+#   * minor bumps are triggered via manual override (force_increment: minor)
 #
 # Multiple PRs can be merged into main over time, and a release will only
 # be cut when the repo owner manually triggers this workflow.
@@ -109,13 +109,8 @@ jobs:
 
           # MinVer never reads commit messages, so it cannot pick the increment on
           # its own. Choose it here and hand it over via -p:MinVerAutoIncrement.
-          $feature = @($subjects | Where-Object {
-            $_ -match '^feat(\([^)]*\))?!?:'
-          }).Count -gt 0
-
-          if ($breaking)    { $increment = 'major' }
-          elseif ($feature) { $increment = 'minor' }
-          else              { $increment = 'patch' }
+          if ($breaking) { $increment = 'major' }
+          else           { $increment = 'patch' }
 
           "release=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "increment=$increment" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
