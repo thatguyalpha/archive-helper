@@ -19,3 +19,7 @@ Desktop.ini
 
 # Agent scratch
 .agents/
+
+# Rust / Cargo
+target/
+**/target/
