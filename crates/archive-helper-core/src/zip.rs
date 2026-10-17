@@ -221,12 +221,6 @@ pub fn create_archive(
             continue;
         }
 
-        let entry_filename = entry
-            .disk_path
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_else(|| entry.archive_path.clone());
-
         // Stream file contents into archive
         let mut file_read_failed = false;
         loop {
@@ -242,12 +236,6 @@ pub fn create_archive(
                         return Err(ArchiveError::Io(e));
                     }
                     bytes_written += n as u64;
-                    reporter.send_throttled(
-                        OperationStage::Archiving,
-                        bytes_written,
-                        files_archived,
-                        Some(entry_filename.clone()),
-                    );
                 }
                 Err(e) => {
                     let warn = ArchiveWarning::FileReadSkipped {
@@ -264,6 +252,12 @@ pub fn create_archive(
 
         if !file_read_failed {
             files_archived += 1;
+            reporter.send_throttled(
+                OperationStage::Archiving,
+                bytes_written,
+                files_archived,
+                None,
+            );
         }
     }
 

@@ -3,8 +3,9 @@ use crate::extract::{extract_archive, ExtractResult, UnzipOptions};
 use crate::progress::{CancellationToken, ProgressUpdate};
 use crate::zip::{create_archive, ArchiveResult, ZipOptions};
 use crossbeam_channel::Receiver;
-use rayon::ThreadPoolBuilder;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 /// A task to be executed within a batch operation.
 #[derive(Debug, Clone)]
@@ -67,55 +68,76 @@ impl BatchCoordinator {
         let (progress_tx, progress_rx) = crossbeam_channel::unbounded();
         let (result_tx, result_rx) = crossbeam_channel::unbounded();
 
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(self.max_concurrent_jobs)
-            .build()
-            .expect("Failed to initialize batch thread pool");
-
         let cancellation = cancellation.unwrap_or_default();
+        let max_jobs = self.max_concurrent_jobs;
 
         std::thread::spawn(move || {
-            pool.install(|| {
-                use rayon::prelude::*;
-                tasks.into_par_iter().for_each(|task| {
-                    let task_id = task.id().to_string();
-                    let task_cancel = cancellation.clone();
-                    let tx = progress_tx.clone();
+            let next_index = Arc::new(AtomicUsize::new(0));
+            let tasks = Arc::new(tasks);
+            let total_tasks = tasks.len();
 
-                    let res = match task {
-                        BatchTask::Zip {
-                            sources,
-                            custom_name,
-                            options,
-                            ..
-                        } => {
-                            let r = create_archive(
-                                &sources,
-                                custom_name.as_deref(),
-                                &options,
-                                Some(&task_cancel),
-                                Some(tx),
-                            );
-                            BatchTaskResult::Zip(r)
-                        }
-                        BatchTask::Unzip {
-                            archive_path,
-                            options,
-                            ..
-                        } => {
-                            let r = extract_archive(
-                                &archive_path,
-                                &options,
-                                Some(&task_cancel),
-                                Some(tx),
-                            );
-                            BatchTaskResult::Unzip(r)
-                        }
-                    };
+            let mut worker_handles = Vec::with_capacity(max_jobs);
 
-                    let _ = result_tx.send((task_id, res));
+            for _ in 0..max_jobs {
+                let next_index = next_index.clone();
+                let tasks = tasks.clone();
+                let cancellation = cancellation.clone();
+                let progress_tx = progress_tx.clone();
+                let result_tx = result_tx.clone();
+
+                let handle = std::thread::spawn(move || {
+                    loop {
+                        let idx = next_index.fetch_add(1, Ordering::SeqCst);
+                        if idx >= total_tasks {
+                            break;
+                        }
+
+                        let task = &tasks[idx];
+                        let task_id = task.id().to_string();
+                        let task_cancel = cancellation.clone();
+                        let tx = progress_tx.clone();
+
+                        let res = match task {
+                            BatchTask::Zip {
+                                sources,
+                                custom_name,
+                                options,
+                                ..
+                            } => {
+                                let r = create_archive(
+                                    sources,
+                                    custom_name.as_deref(),
+                                    options,
+                                    Some(&task_cancel),
+                                    Some(tx),
+                                );
+                                BatchTaskResult::Zip(r)
+                            }
+                            BatchTask::Unzip {
+                                archive_path,
+                                options,
+                                ..
+                            } => {
+                                let r = extract_archive(
+                                    archive_path,
+                                    options,
+                                    Some(&task_cancel),
+                                    Some(tx),
+                                );
+                                BatchTaskResult::Unzip(r)
+                            }
+                        };
+
+                        let _ = result_tx.send((task_id, res));
+                    }
                 });
-            });
+
+                worker_handles.push(handle);
+            }
+
+            for handle in worker_handles {
+                let _ = handle.join();
+            }
         });
 
         (progress_rx, result_rx)

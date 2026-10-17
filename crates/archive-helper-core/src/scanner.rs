@@ -298,9 +298,13 @@ mod tests {
 
         let mut osu_file = File::create(beatmap_folder.join("song.osu"))?;
         osu_file.write_all(b"[General]\nMode: 0\n")?;
+        osu_file.sync_all()?;
+        drop(osu_file);
 
         let mut mp3_file = File::create(beatmap_folder.join("audio.mp3"))?;
         mp3_file.write_all(b"fake audio data")?;
+        mp3_file.sync_all()?;
+        drop(mp3_file);
 
         let result = scan_sources(&[beatmap_folder], true)?;
         assert_eq!(result.predicted_extension, ArchiveExtension::Osz);

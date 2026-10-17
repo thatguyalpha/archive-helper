@@ -1,13 +1,13 @@
 use crate::error::{ArchiveError, ArchiveWarning};
-use crate::fs::{is_same_or_child_path, normalize_extended_path, safe_delete_file, strip_extended_prefix};
+use crate::fs::{
+    is_same_or_child_path, normalize_extended_path, open_resilient_read, safe_delete_file,
+    strip_extended_prefix,
+};
 use crate::progress::{CancellationToken, OperationStage, ProgressReporter, ProgressUpdate};
-use rayon::prelude::*;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::{BufReader, Read, Write};
+use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use zip::ZipArchive;
 
@@ -56,11 +56,70 @@ pub struct ExtractResult {
     pub warnings: Vec<ArchiveWarning>,
 }
 
+/// Inspects a zip archive's central directory and returns (total_uncompressed_bytes, total_files).
+pub fn inspect_zip(path: &Path) -> Result<(u64, usize), ArchiveError> {
+    let file = open_resilient_read(path)?;
+    let mut zip = ZipArchive::new(BufReader::with_capacity(64 * 1024, file))?;
+    let mut bytes = 0u64;
+    let mut files = 0usize;
+    for i in 0..zip.len() {
+        if let Ok(entry) = zip.by_index_raw(i) {
+            if !entry.is_dir() {
+                bytes += entry.size();
+                files += 1;
+            }
+        }
+    }
+    Ok((bytes, files))
+}
+
 struct EntryDescriptor {
     index: usize,
+    #[allow(dead_code)]
     name: String,
+    enclosed_path: PathBuf,
     is_dir: bool,
     mtime: Option<filetime::FileTime>,
+}
+
+/// Atomically creates a file using OS `CREATE_NEW` flags.
+/// If a file with the target name already exists (e.g. during multi-archive extraction
+/// with `keep_top_dir = false`), it automatically appends `(1)`, `(2)`, etc.
+/// This prevents silent overwrites, avoids `ERROR_SHARING_VIOLATION` across worker threads,
+/// and guarantees zero file loss.
+fn create_collision_safe_file(base_path: &Path) -> std::io::Result<(File, PathBuf)> {
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+
+    match options.open(base_path) {
+        Ok(file) => Ok((file, base_path.to_path_buf())),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            let parent = base_path.parent().unwrap_or_else(|| Path::new("."));
+            let stem = base_path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("file");
+            let ext = base_path.extension().and_then(|e| e.to_str());
+
+            for counter in 1..=100_000 {
+                let candidate_name = match ext {
+                    Some(extension) => format!("{} ({}).{}", stem, counter, extension),
+                    None => format!("{} ({})", stem, counter),
+                };
+                let candidate_path = parent.join(candidate_name);
+                match options.open(&candidate_path) {
+                    Ok(file) => return Ok((file, candidate_path)),
+                    Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                    Err(err) => return Err(err),
+                }
+            }
+            Err(std::io::Error::new(
+                std::io::ErrorKind::AlreadyExists,
+                format!("Exceeded 100,000 collision attempts for {:?}", base_path),
+            ))
+        }
+        Err(e) => Err(e),
+    }
 }
 
 /// Extracts a `.zip`, `.osz`, or `.osk` archive using multi-threaded work-stealing parallel decompression.
@@ -81,8 +140,8 @@ pub fn extract_archive(
         token.check_cancelled()?;
     }
 
-    let file = File::open(&archive_path)?;
-    let mut zip = ZipArchive::new(BufReader::new(file))?;
+    let file = open_resilient_read(&archive_path)?;
+    let mut zip = ZipArchive::new(BufReader::with_capacity(1024 * 1024, file))?;
 
     let archive_stem = archive_path
         .file_stem()
@@ -112,11 +171,14 @@ pub fn extract_archive(
 
     for i in 0..zip.len() {
         let entry = zip.by_index_raw(i)?;
-        let name = entry.name()?.to_string();
+        let name = match entry.name() {
+            Ok(n) => n.to_string(),
+            Err(_) => String::from_utf8_lossy(entry.name_raw()).to_string(),
+        };
         let is_dir = entry.is_dir();
         let size = entry.size();
 
-        // Zip Slip check
+        // Safe relative path (Zip Slip prevention)
         let enclosed_path = match entry.enclosed_name() {
             Some(p) => p.to_path_buf(),
             None => {
@@ -146,15 +208,16 @@ pub fn extract_archive(
         descriptors.push(EntryDescriptor {
             index: i,
             name,
+            enclosed_path,
             is_dir,
             mtime,
         });
     }
 
-    // Pre-create all distinct directories upfront to prevent thread lock contention
+    // Pre-create all distinct directories upfront to prevent filesystem race conditions
     let mut distinct_dirs = HashSet::new();
     for desc in &descriptors {
-        let dest = target_dir.join(&desc.name);
+        let dest = target_dir.join(&desc.enclosed_path);
         if desc.is_dir {
             distinct_dirs.insert(dest);
         } else if let Some(parent) = dest.parent() {
@@ -177,66 +240,58 @@ pub fn extract_archive(
 
     reporter.send_immediate(OperationStage::Extracting, 0, 0, None);
 
-    // Parallel extraction of non-directory files
+    // Sequential high-throughput streaming extraction (no random seek contention)
     let file_descriptors: Vec<_> = descriptors.into_iter().filter(|d| !d.is_dir).collect();
-    let bytes_extracted = Arc::new(AtomicU64::new(0));
-    let files_extracted = Arc::new(AtomicUsize::new(0));
-
-    let archive_path_clone = archive_path.clone();
-    let target_dir_clone = target_dir.clone();
+    let mut bytes_extracted = 0u64;
+    let mut files_extracted = 0usize;
     let keep_mtime = options.keep_mtime;
+    let mut buf = vec![0u8; 1024 * 1024];
 
-    // Use Rayon thread pool
-    let thread_count = options
-        .max_threads
-        .unwrap_or_else(|| std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).min(8));
+    for desc in &file_descriptors {
+        if let Some(token) = cancellation {
+            token.check_cancelled()?;
+        }
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(thread_count)
-        .build()
-        .map_err(|e| ArchiveError::Other(e.to_string()))?;
+        let base_out_path = target_dir.join(&desc.enclosed_path);
+        let (out_file, out_path) = create_collision_safe_file(&base_out_path)?;
+        let mut writer = BufWriter::with_capacity(512 * 1024, out_file);
 
-    pool.install(|| -> Result<(), ArchiveError> {
-        file_descriptors.par_iter().try_for_each(|desc| -> Result<(), ArchiveError> {
+        let mut entry = zip.by_index(desc.index)?;
+        loop {
             if let Some(token) = cancellation {
                 token.check_cancelled()?;
             }
 
-            // Each worker opens its own read handle to avoid stream contention
-            let file = File::open(&archive_path_clone)?;
-            let mut local_zip = ZipArchive::new(BufReader::with_capacity(256 * 1024, file))?;
-            let mut entry = local_zip.by_index(desc.index)?;
-
-            let out_path = target_dir_clone.join(&desc.name);
-            let mut out_file = File::create(&out_path)?;
-
-            let mut buf = vec![0u8; 256 * 1024];
-            loop {
-                if let Some(token) = cancellation {
-                    token.check_cancelled()?;
-                }
-
-                let n = entry.read(&mut buf)?;
-                if n == 0 {
-                    break;
-                }
-                out_file.write_all(&buf[..n])?;
-                bytes_extracted.fetch_add(n as u64, Ordering::Relaxed);
+            let n = entry.read(&mut buf)?;
+            if n == 0 {
+                break;
             }
+            writer.write_all(&buf[..n])?;
+            bytes_extracted += n as u64;
+        }
+        writer.flush()?;
+        drop(writer);
 
-            if keep_mtime {
-                if let Some(mtime) = desc.mtime {
-                    let _ = filetime::set_file_mtime(&out_path, mtime);
-                }
+        if keep_mtime {
+            if let Some(mtime) = desc.mtime {
+                let _ = filetime::set_file_mtime(&out_path, mtime);
             }
+        }
 
-            files_extracted.fetch_add(1, Ordering::Relaxed);
-            Ok(())
-        })
-    })?;
+        files_extracted += 1;
+        reporter.send_throttled(
+            OperationStage::Extracting,
+            bytes_extracted,
+            files_extracted,
+            Some(desc.enclosed_path.to_string_lossy().to_string()),
+        );
+    }
 
-    let final_bytes = bytes_extracted.load(Ordering::SeqCst);
-    let final_files = files_extracted.load(Ordering::SeqCst);
+    // Explicitly drop zip reader to release file locks on Windows
+    drop(zip);
+
+    let final_bytes = bytes_extracted;
+    let final_files = files_extracted;
 
     let mut warnings = Vec::new();
 

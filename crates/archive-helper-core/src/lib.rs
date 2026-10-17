@@ -25,7 +25,7 @@ pub mod zip;
 pub use atomic::AtomicFileWriter;
 pub use batch::{BatchCoordinator, BatchTask, BatchTaskResult};
 pub use error::{ArchiveError, ArchiveWarning};
-pub use extract::{extract_archive, ExtractResult, UnzipOptions};
+pub use extract::{extract_archive, inspect_zip, ExtractResult, UnzipOptions};
 pub use fs::{
     filter_redundant_sources, is_same_or_child_path, normalize_extended_path, open_resilient_read,
     safe_delete_dir_all, safe_delete_file, strip_extended_prefix, validate_archive_name,

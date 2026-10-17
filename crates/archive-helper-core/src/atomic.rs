@@ -70,6 +70,16 @@ impl AtomicFileWriter {
         }
         // File handle is now dropped/closed, releasing any Windows OS file lock
 
+        // Ensure destination is writable if it already exists
+        if let Ok(meta) = std::fs::metadata(&self.target_path) {
+            let mut perm = meta.permissions();
+            #[allow(clippy::permissions_set_readonly_false)]
+            if perm.readonly() {
+                perm.set_readonly(false);
+                let _ = std::fs::set_permissions(&self.target_path, perm);
+            }
+        }
+
         // Atomically replace destination file
         std::fs::rename(&self.temp_path, &self.target_path)?;
         self.committed = true;
