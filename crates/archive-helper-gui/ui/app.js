@@ -409,27 +409,33 @@ inputZipName.addEventListener('keydown', (e) => {
 
 // 6. Queue Flyout Management (Hover & Pin)
 function showQueuePopup() {
-  if (queueItems.length === 0 && !isOperationRunning) return;
   if (popupCloseTimeout) {
     clearTimeout(popupCloseTimeout);
     popupCloseTimeout = null;
   }
+  if (queueItemsList.children.length === 0) {
+    renderQueue();
+  }
   popupQueue.classList.remove('hidden');
 }
 
-function scheduleCloseQueuePopup() {
-  if (isQueuePinned) return;
+function scheduleCloseQueuePopup(immediate = false) {
+  if (isQueuePinned && !immediate) return;
   if (popupCloseTimeout) clearTimeout(popupCloseTimeout);
+  if (immediate) {
+    popupQueue.classList.add('hidden');
+    return;
+  }
   popupCloseTimeout = setTimeout(() => {
     if (!isQueuePinned) {
       popupQueue.classList.add('hidden');
     }
-  }, 250);
+  }, 600);
 }
 
 // Hover on progress rings cluster
 globalProgressTrigger.addEventListener('mouseenter', showQueuePopup);
-globalProgressTrigger.addEventListener('mouseleave', scheduleCloseQueuePopup);
+globalProgressTrigger.addEventListener('mouseleave', () => scheduleCloseQueuePopup(false));
 
 // Hover on popup itself
 popupQueue.addEventListener('mouseenter', () => {
@@ -438,17 +444,21 @@ popupQueue.addEventListener('mouseenter', () => {
     popupCloseTimeout = null;
   }
 });
-popupQueue.addEventListener('mouseleave', scheduleCloseQueuePopup);
+popupQueue.addEventListener('mouseleave', () => scheduleCloseQueuePopup(false));
+
+// Prevent clicks inside popup from bubbling to document (which closes pinned popup)
+popupQueue.addEventListener('click', (e) => {
+  e.stopPropagation();
+});
 
 // Click progress rings to toggle pin
 globalProgressTrigger.addEventListener('click', (e) => {
   e.stopPropagation();
-  if (queueItems.length === 0 && !isOperationRunning) return;
   isQueuePinned = !isQueuePinned;
   if (isQueuePinned) {
     showQueuePopup();
   } else {
-    scheduleCloseQueuePopup();
+    scheduleCloseQueuePopup(true);
   }
 });
 
@@ -462,6 +472,14 @@ document.addEventListener('click', (e) => {
 
 function renderQueue() {
   queueItemsList.innerHTML = '';
+  if (queueItems.length === 0) {
+    queueItemsList.innerHTML = '<div class="queue-empty-msg">No active operations in queue</div>';
+    const txtQueueCount = document.getElementById('txtQueueCount');
+    if (txtQueueCount) {
+      txtQueueCount.textContent = '0 items';
+    }
+    return;
+  }
   queueItems.forEach(item => {
     const el = document.createElement('div');
     el.className = 'queue-item';

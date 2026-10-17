@@ -405,10 +405,30 @@ body {
   transition: opacity 0.16s ease;
 }
 
+/* Seamless hover bridge covering the gap between the flyout and the bottom bar */
+.popup-queue::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -24px;
+  height: 24px;
+  background: transparent;
+}
+
 .popup-queue.hidden {
   opacity: 0;
   pointer-events: none;
   display: none;
+}
+
+.queue-empty-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px 0;
+  color: #666666;
+  font-size: 12px;
+  user-select: none;
 }
 
 .queue-list {
