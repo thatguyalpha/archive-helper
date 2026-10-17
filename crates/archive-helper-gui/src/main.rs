@@ -22,6 +22,29 @@ struct DragFilesPayload {
 }
 
 fn main() {
+    // Custom panic hook: logs panic to %APPDATA%\ArchiveHelper\crash.log and shows a native MessageBox
+    std::panic::set_hook(Box::new(|info| {
+        let msg = format!("ArchiveHelper encountered a fatal error:\n\n{}\n", info);
+        if let Ok(app_data) = std::env::var("APPDATA") {
+            let log_dir = std::path::PathBuf::from(app_data).join("ArchiveHelper");
+            let _ = std::fs::create_dir_all(&log_dir);
+            let log_path = log_dir.join("crash.log");
+            let _ = std::fs::write(&log_path, &msg);
+        }
+        #[cfg(target_os = "windows")]
+        unsafe {
+            use std::os::windows::ffi::OsStrExt;
+            let title: Vec<u16> = std::ffi::OsStr::new("Archive Helper Error").encode_wide().chain(Some(0)).collect();
+            let text: Vec<u16> = std::ffi::OsStr::new(&msg).encode_wide().chain(Some(0)).collect();
+            windows::Win32::UI::WindowsAndMessaging::MessageBoxW(
+                None,
+                windows::core::PCWSTR(text.as_ptr()),
+                windows::core::PCWSTR(title.as_ptr()),
+                windows::Win32::UI::WindowsAndMessaging::MB_OK | windows::Win32::UI::WindowsAndMessaging::MB_ICONERROR,
+            );
+        }
+    }));
+
     let app_state = AppState::new();
 
     tauri::Builder::default()
@@ -41,7 +64,13 @@ fn main() {
             commands::exit_app,
         ])
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
+            let window = match app.get_webview_window("main") {
+                Some(w) => w,
+                None => match app.webview_windows().into_iter().next() {
+                    Some((_, w)) => w,
+                    None => return Err("No webview window found during startup".into()),
+                },
+            };
 
             // Set window icon from default app icon resource
             if let Some(icon) = app.default_window_icon() {
