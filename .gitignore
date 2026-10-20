@@ -1,5 +1,5 @@
 # Build output
-bin/
+/bin/
 obj/
 publish/
 
@@ -19,3 +19,10 @@ Desktop.ini
 
 # Agent scratch
 .agents/
+
+# Benchmarking
+.benchmark/
+
+# Rust / Cargo
+target/
+**/target/

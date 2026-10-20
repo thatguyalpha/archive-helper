@@ -1,0 +1,658 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  background-color: #161616;
+  color: #FFFFFF;
+  font-family: "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  width: 654px;
+  height: 316px;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 654px;
+  height: 316px;
+  padding: 20px;
+  position: relative;
+}
+
+/* Two Column Drop Layout */
+.cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 18px;
+  flex: 1;
+  height: calc(100% - 50px);
+}
+
+.card-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.drop-card {
+  background-color: #202020;
+  border: 2px solid #383838;
+  border-radius: 10px;
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.drop-card:hover {
+  border-color: #484848;
+}
+
+.drop-card[data-action="zip"].drag-over {
+  border-color: #007ACC !important;
+}
+
+.drop-card[data-action="unzip"].drag-over {
+  border-color: #28A745 !important;
+}
+
+.card-label {
+  font-size: 22px;
+  font-weight: 600;
+  color: #EEEEEE;
+  letter-spacing: -0.2px;
+  pointer-events: none;
+}
+
+/* Output Folder Target: 48x48, Radius 8px */
+.btn-folder {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: #262626;
+  border: 2px solid #3E3E3E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.12s, border-color 0.12s;
+}
+
+.btn-folder.top-left {
+  right: auto;
+  left: 12px;
+}
+
+.btn-folder:hover, .btn-folder.drag-target {
+  background-color: #333333;
+  border-color: #555555;
+}
+
+.drop-card[data-action="zip"] .btn-folder.drag-target {
+  border-color: #007ACC !important;
+}
+
+.drop-card[data-action="unzip"] .btn-folder.drag-target {
+  border-color: #28A745 !important;
+}
+
+.icon-folder {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: #DDDDDD;
+  stroke-width: 42;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+  overflow: visible;
+  margin-top: -2px;
+}
+
+/* Checkbox Styling */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.custom-checkbox {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: #CCCCCC;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.custom-checkbox input {
+  display: none;
+}
+
+.checkbox-box {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  background-color: #242424;
+  border: 1.5px solid #4A4A4A;
+  margin-right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+.custom-checkbox:hover .checkbox-box {
+  border-color: #007ACC;
+  background-color: #2E2E2E;
+}
+
+.custom-checkbox input:checked + .checkbox-box {
+  background-color: #007ACC;
+  border-color: #007ACC;
+}
+
+.custom-checkbox:hover input:checked + .checkbox-box {
+  background-color: #1A8AD4;
+  border-color: #1A8AD4;
+}
+
+.checkbox-check {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: #FFFFFF;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: none;
+}
+
+.custom-checkbox input:checked + .checkbox-box .checkbox-check {
+  display: block;
+}
+
+/* Bottom Bar */
+.bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  height: 36px;
+}
+
+.status-cluster {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Global Progress Ring (44x44) */
+.global-ring-container {
+  width: 44px;
+  height: 44px;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-svg {
+  width: 44px;
+  height: 44px;
+  transform: rotate(-90deg);
+}
+
+.completed-badge {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.badge-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #007ACC;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.txt-counter {
+  color: #61AFEF;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+}
+
+.panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.txt-summary-bytes {
+  color: #61AFEF;
+}
+
+.txt-summary-files {
+  color: #C084FC;
+}
+
+/* Utility Buttons: 36x36, Radius 7px */
+.utility-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-utility {
+  width: 36px;
+  height: 36px;
+  border-radius: 7px;
+  background-color: #262626;
+  border: 1px solid #3E3E3E;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  color: #888888;
+  transition: background-color 0.1s, border-color 0.1s, color 0.1s;
+}
+
+.btn-utility:hover {
+  background-color: #333333;
+  border-color: #555555;
+  color: #FFFFFF;
+}
+
+.btn-utility:active {
+  background-color: #1E1E1E;
+  border-color: #007ACC;
+}
+
+/* Unit Mode Toggle Split: MiB / GiB */
+.unit-split {
+  width: 30px;
+  height: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: #DDDDDD;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.icon-shield, .icon-thumbtack, .icon-exit {
+  pointer-events: none;
+}
+
+.btn-utility:hover .unit-split {
+  color: #FFFFFF;
+}
+
+.unit-divider {
+  width: 22px;
+  height: 1.2px;
+  background-color: #DDDDDD;
+  opacity: 0.75;
+  margin: 2px 0;
+}
+
+.btn-utility:hover .unit-divider {
+  background-color: #FFFFFF;
+  opacity: 1;
+}
+
+.icon-shield {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: #888888;
+  stroke-width: 20;
+  stroke-linejoin: round;
+  transition: stroke 0.1s, fill 0.1s;
+}
+
+.btn-utility:hover .icon-shield {
+  stroke: #FFFFFF;
+}
+
+.btn-utility.is-admin .icon-shield {
+  fill: #FFFFFF;
+  stroke: none;
+}
+
+.btn-utility.is-admin {
+  cursor: default;
+}
+
+.icon-thumbtack {
+  width: 20px;
+  height: 20px;
+  fill: #FFFFFF;
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
+.btn-utility.active .icon-thumbtack {
+  opacity: 1.0;
+}
+
+.btn-utility:hover .icon-thumbtack {
+  opacity: 1.0;
+}
+
+.icon-exit {
+  width: 18px;
+  height: 18px;
+  fill: #FFFFFF;
+  margin-left: -2px;
+}
+
+/* Floating Queue Popup Flyout */
+.popup-queue {
+  position: absolute;
+  bottom: 64px;
+  left: 20px;
+  width: 614px;
+  max-height: 220px;
+  background-color: #181818;
+  border: 1.5px solid #383838;
+  border-radius: 10px;
+  padding: 10px 12px 8px 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transition: opacity 0.16s ease;
+}
+
+/* Seamless hover bridge covering the gap between the flyout and the bottom bar */
+.popup-queue::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -24px;
+  height: 24px;
+  background: transparent;
+}
+
+.popup-queue.hidden {
+  opacity: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.queue-empty-msg {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 24px 0;
+  color: #666666;
+  font-size: 12px;
+  user-select: none;
+}
+
+.queue-list {
+  overflow-y: auto;
+  max-height: 160px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  row-gap: 6px;
+  padding-right: 6px;
+}
+
+.queue-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 6px;
+  margin-top: 6px;
+  border-top: 1px solid #282828;
+}
+
+.queue-footer-info {
+  font-size: 11px;
+  color: #777777;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.btn-queue-follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #202020;
+  border: 1px solid #363636;
+  border-radius: 5px;
+  color: #888888;
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-queue-follow:hover {
+  background: #262626;
+  color: #CCCCCC;
+  border-color: #484848;
+}
+
+.btn-queue-follow.active {
+  background: #152536;
+  border-color: #007ACC;
+  color: #38B6FF;
+}
+
+.icon-follow {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+/* Custom 5px Scrollbar */
+.queue-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.queue-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.queue-list::-webkit-scrollbar-thumb {
+  background: #444444;
+  border-radius: 2.5px;
+}
+
+.queue-list::-webkit-scrollbar-thumb:hover {
+  background: #666666;
+}
+
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: #CCCCCC;
+  min-height: 24px;
+  min-width: 0;
+  padding-right: 4px;
+}
+
+.q-ring-svg {
+  width: 20px;
+  height: 20px;
+  transform: rotate(-90deg);
+}
+
+.queue-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #E0E0E0;
+  font-size: 11.5px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.queue-item-stats {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.q-bytes-text {
+  color: #9E9E9E;
+  font-family: inherit;
+}
+
+.q-files-text {
+  color: #C084FC;
+  font-family: inherit;
+}
+
+/* Modal Dialog */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.modal-box {
+  width: 360px;
+  background-color: #1a1a1a;
+  border: 1.5px solid #383838;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modal-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #EEEEEE;
+}
+
+.modal-input {
+  width: 100%;
+  height: 32px;
+  background-color: #242424;
+  border: 1px solid #444444;
+  border-radius: 4px;
+  padding: 0 10px;
+  color: #FFFFFF;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.1s;
+}
+
+.modal-input:focus {
+  border-color: #007ACC;
+}
+
+.modal-validation {
+  font-size: 11px;
+  color: #ff6b6b;
+}
+
+.modal-validation.hidden {
+  display: none;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.modal-btn {
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  background-color: #282828;
+  border: 1px solid #444444;
+  color: #CCCCCC;
+  transition: all 0.1s;
+}
+
+.modal-btn:hover {
+  background-color: #333333;
+  color: #FFFFFF;
+}
+
+.modal-btn.primary {
+  background-color: #007ACC;
+  border-color: #007ACC;
+  color: #FFFFFF;
+}
+
+.modal-btn.primary:hover {
+  background-color: #1A8AD4;
+}

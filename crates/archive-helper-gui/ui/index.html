@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Archive Helper</title>
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      document.title = "JS_ERR: " + msg + " (L" + line + ")";
+    };
+  </script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body oncontextmenu="return false;">
+  <div class="app-container">
+    <!-- Two Column Drop Zones -->
+    <div class="cards-grid">
+      <!-- LEFT: Zip Drop Card -->
+      <div class="card-column">
+        <div id="dropZip" class="drop-card" data-action="zip">
+          <span class="card-label">drag to zip</span>
+          <!-- Output Folder Target (Top-Right) -->
+          <div id="btnFolderZip" class="btn-folder">
+            <svg class="icon-folder" viewBox="15 57 485 398">
+              <path d="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z M 189,260 A 63,63 0 1 0 315,260 A 63,63 0 1 0 189,260 Z M 308,316 L 354,362"/>
+            </svg>
+          </div>
+        </div>
+        <div class="checkbox-group">
+          <div class="checkbox-row">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkDeleteZip" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>delete original</span>
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkFastZip" />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>fast</span>
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkPredictExt" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>predict ext</span>
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkKeepMtimeZip" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>keep mtime</span>
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkSingleFolderZip" />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>single zip</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Unzip Drop Card -->
+      <div class="card-column">
+        <div id="dropUnzip" class="drop-card" data-action="unzip">
+          <span class="card-label">drag to unzip</span>
+          <!-- Output Folder Target (Top-Left) -->
+          <div id="btnFolderUnzip" class="btn-folder top-left">
+            <svg class="icon-folder" viewBox="15 57 485 398">
+              <path d="M 40,130 L 40,400 A 30,30 0 0 0 70,430 L 445,430 A 30,30 0 0 0 475,400 L 475,157 A 30,30 0 0 0 445,127 L 290,127 C 265,127 240,82 212,82 L 70,82 A 30,30 0 0 0 40,112 Z M 189,260 A 63,63 0 1 0 315,260 A 63,63 0 1 0 189,260 Z M 308,316 L 354,362"/>
+            </svg>
+          </div>
+        </div>
+        <div class="checkbox-group">
+          <div class="checkbox-row">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkDeleteUnzip" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>delete original</span>
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkFastUnzip" />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>fast</span>
+            </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkKeepTopDir" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>keep top dir</span>
+            </label>
+          </div>
+          <div class="checkbox-row">
+            <label class="custom-checkbox">
+              <input type="checkbox" id="chkKeepMtimeUnzip" checked />
+              <div class="checkbox-box">
+                <svg class="checkbox-check" viewBox="0 0 16 16"><path d="M 2.5,7.5 L 6,11 L 13.5,3.5"/></svg>
+              </div>
+              <span>keep mtime</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Status & Utility Bar -->
+    <div class="bottom-bar">
+      <!-- Bottom Left: Global Dual-Arc Progress Ring & Counter -->
+      <div class="status-cluster">
+        <div id="globalProgressTrigger" class="global-ring-container">
+          <svg class="ring-svg" viewBox="0 0 44 44">
+            <!-- Background Tracks (Always visible) -->
+            <circle cx="22" cy="22" r="19.8" fill="none" stroke="#262626" stroke-width="4.4" />
+            <circle cx="22" cy="22" r="15.7" fill="none" stroke="#241730" stroke-width="3.8" />
+            <!-- Active Highlights (Fade out when completed) -->
+            <g id="progressArcsGroup" style="transition: opacity 0.25s ease;">
+              <circle id="arcBytes" cx="22" cy="22" r="19.8" fill="none" stroke="#007ACC" stroke-width="4.4"
+                      stroke-linecap="round" stroke-dasharray="124.407" stroke-dashoffset="124.407"
+                      style="transition: stroke-dashoffset 0.08s linear;" />
+              <circle id="arcFiles" cx="22" cy="22" r="15.7" fill="none" stroke="#B026FF" stroke-width="3.8"
+                      stroke-linecap="round" stroke-dasharray="98.646" stroke-dashoffset="98.646"
+                      style="transition: stroke-dashoffset 0.08s linear;" />
+            </g>
+          </svg>
+          <!-- Completed State (Solid circle + white checkmark) -->
+          <div id="badgeCompleted" class="completed-badge" style="opacity: 0; pointer-events: none; transition: opacity 0.25s ease;">
+            <div id="badgeCircle" class="badge-circle">
+              <svg width="12" height="9.6" viewBox="0 0 12 9.6" fill="none">
+                <path d="M 0,5.3 L 4.1,9.6 L 12.0,0" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+        <span id="txtCounter" class="txt-counter"></span>
+        <div id="panelSummary" class="panel-summary" style="display: none;">
+          <span id="txtSummaryBytes" class="txt-summary-bytes"></span>
+          <span id="txtSummaryFiles" class="txt-summary-files"></span>
+        </div>
+      </div>
+
+      <!-- Bottom Right: Utility Buttons -->
+      <div class="utility-group">
+        <!-- Unit Mode (MiB / GiB) -->
+        <button id="btnUnitMode" class="btn-utility">
+          <div class="unit-split">
+            <span id="unitTop">MiB</span>
+            <div class="unit-divider"></div>
+            <span id="unitBottom">GiB</span>
+          </div>
+        </button>
+
+        <!-- Admin Shield -->
+        <button id="btnAdmin" class="btn-utility">
+          <svg class="icon-shield" viewBox="0 0 256 256">
+            <path id="pathShield" d="M 101.62,12.55 C 123.71,4.45 150.15,6.65 169.40,20.70 C 190.26,34.18 215.41,39.67 240.01,39.97 C 239.99,60.65 240.01,81.32 240.00,102.00 C 239.15,130.70 227.12,158.16 209.60,180.59 C 187.80,208.60 158.72,230.05 128.00,247.38 C 97.08,229.94 67.82,208.32 45.98,180.04 C 28.67,157.72 16.83,130.44 16.00,101.96 C 16.00,81.29 16.01,60.63 15.99,39.96 C 37.49,39.74 59.21,35.47 78.40,25.53 C 86.33,21.52 93.11,15.42 101.62,12.55 Z"/>
+          </svg>
+        </button>
+
+        <!-- Always on Top -->
+        <button id="btnAlwaysOnTop" class="btn-utility">
+          <svg class="icon-thumbtack" viewBox="0 0 640 640">
+            <path id="pathThumbtack" d="M160 96C160 78.3 174.3 64 192 64L448 64C465.7 64 480 78.3 480 96C480 113.7 465.7 128 448 128L418.5 128L428.8 262.1C465.9 283.3 494.6 318.5 507 361.8L510.8 375.2C513.6 384.9 511.6 395.2 505.6 403.3C499.6 411.4 490 416 480 416L160 416C150 416 140.5 411.3 134.5 403.3C128.5 395.3 126.5 384.9 129.3 375.2L133 361.8C145.4 318.5 174 283.3 211.2 262.1L221.5 128L192 128C174.3 128 160 113.7 160 96zM288 464L352 464L352 576C352 593.7 337.7 608 320 608C302.3 608 288 593.7 288 576L288 464z"/>
+          </svg>
+        </button>
+
+        <!-- Exit -->
+        <button id="btnExit" class="btn-utility">
+          <svg class="icon-exit" viewBox="39.63 25.89 400.58 386.27">
+            <path d="M 172.68 25.92 C 261.84 25.89 351.00 25.89 440.17 25.92 C 440.21 154.65 440.15 283.38 440.19 412.11 C 351.01 412.05 261.83 412.16 172.65 412.05 C 172.67 387.38 172.60 362.70 172.68 338.03 C 182.90 338.01 193.12 338.02 203.34 338.02 C 203.40 352.48 203.24 366.94 203.42 381.39 C 271.89 381.21 340.36 381.54 408.82 381.23 C 363.55 366.30 318.28 351.36 273.00 336.46 C 272.98 258.16 273.01 179.87 272.99 101.58 C 318.33 86.58 363.67 71.61 409.04 56.72 C 340.49 56.57 271.94 56.76 203.39 56.62 C 203.22 71.08 203.37 85.54 203.32 100.00 C 193.10 100.00 182.88 100.00 172.66 100.00 C 172.67 75.31 172.64 50.62 172.68 25.92 M 293.47 207.37 C 287.91 211.38 287.53 219.57 289.65 225.57 C 290.66 228.87 294.06 232.63 297.81 230.88 C 301.96 228.69 303.10 223.52 303.33 219.21 C 303.21 215.19 302.36 210.61 299.05 207.94 C 297.56 206.61 295.17 206.15 293.47 207.37 Z M 148.81 130.31 C 181.71 159.86 214.60 189.43 247.48 219.00 C 214.61 248.62 181.68 278.17 148.79 307.76 C 148.91 290.29 148.77 272.83 148.86 255.36 C 112.47 255.52 76.08 255.35 39.68 255.44 C 39.63 231.15 39.74 206.85 39.69 182.55 C 76.08 182.60 112.46 182.47 148.85 182.62 C 148.77 165.18 148.84 147.74 148.81 130.31 Z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Floating Queue Popup Flyout -->
+    <div id="popupQueue" class="popup-queue hidden">
+      <div id="queueItemsList" class="queue-list"></div>
+      <div class="queue-footer">
+        <span id="txtQueueCount" class="queue-footer-info"></span>
+        <button id="btnFollow" class="btn-queue-follow active">
+          <svg class="icon-follow" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="3" fill="currentColor"/>
+            <path d="M 8,1 L 8,4 M 8,12 L 8,15 M 1,8 L 4,8 M 12,8 L 15,8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span id="txtFollow">Follow</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Single Zip Modal Prompt -->
+    <div id="singleZipModal" class="modal-backdrop hidden">
+      <div class="modal-box">
+        <label for="inputZipName" class="modal-label">Zip name</label>
+        <input type="text" id="inputZipName" class="modal-input" autocomplete="off" spellcheck="false" />
+        <span id="msgZipValidation" class="modal-validation hidden">Enter a valid archive name without invalid characters.</span>
+        <div class="modal-actions">
+          <button id="btnModalCancel" class="modal-btn">Cancel</button>
+          <button id="btnModalSubmit" class="modal-btn primary">Create zip</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
