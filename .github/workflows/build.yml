@@ -1,6 +1,6 @@
 name: Build
 
-# Catch broken commits early: build the WPF project on every push and PR.
+# Catch broken commits early: test and build the Rust workspace on every push and PR.
 on:
   push:
     branches: [main]
@@ -14,13 +14,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Restore
-        run: dotnet restore
+      - name: Run tests
+        run: cargo test --workspace
 
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
+      - name: Build release
+        run: cargo build --release
