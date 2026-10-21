@@ -62,10 +62,7 @@ pub struct PreScanResult {
 }
 
 /// Pre-scans source items (files and directories) and prepares an entry manifest.
-pub fn scan_sources(
-    sources: &[PathBuf],
-    predict_ext: bool,
-) -> Result<PreScanResult, ArchiveError> {
+pub fn scan_sources(sources: &[PathBuf], predict_ext: bool) -> Result<PreScanResult, ArchiveError> {
     if sources.is_empty() {
         return Err(ArchiveError::EmptySource);
     }
@@ -107,8 +104,7 @@ pub fn scan_sources(
 
         if meta.is_dir() {
             // Walk directory using walkdir for resilient, non-blocking traversal
-            let walker = walkdir::WalkDir::new(src)
-                .follow_links(false);
+            let walker = walkdir::WalkDir::new(src).follow_links(false);
 
             // Add the root folder entry itself if multi-source
             if is_multi_source {
@@ -132,6 +128,11 @@ pub fn scan_sources(
                 let entry_path = entry.path();
                 // Skip the root folder itself if walking
                 if entry_path == *src {
+                    continue;
+                }
+
+                // Never package ArchiveHelper temporary files
+                if crate::journal::is_archive_helper_temp_file(entry_path) {
                     continue;
                 }
 
@@ -201,6 +202,10 @@ pub fn scan_sources(
             }
         } else {
             // Single file
+            if crate::journal::is_archive_helper_temp_file(src) {
+                continue;
+            }
+
             let size = meta.len();
             let modified = meta.modified().ok();
             if let Some(m) = modified {

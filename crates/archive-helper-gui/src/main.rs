@@ -1,12 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-mod state;
 mod commands;
+mod state;
 
-use state::AppState;
-use tauri::{DragDropEvent, Emitter, Manager, WindowEvent};
 use serde::Serialize;
+use state::AppState;
 use std::path::PathBuf;
+use tauri::{DragDropEvent, Emitter, Manager, WindowEvent};
 
 #[derive(Debug, Clone, Serialize)]
 struct DragPositionPayload {
@@ -34,13 +34,20 @@ fn main() {
         #[cfg(target_os = "windows")]
         unsafe {
             use std::os::windows::ffi::OsStrExt;
-            let title: Vec<u16> = std::ffi::OsStr::new("Archive Helper Error").encode_wide().chain(Some(0)).collect();
-            let text: Vec<u16> = std::ffi::OsStr::new(&msg).encode_wide().chain(Some(0)).collect();
+            let title: Vec<u16> = std::ffi::OsStr::new("Archive Helper Error")
+                .encode_wide()
+                .chain(Some(0))
+                .collect();
+            let text: Vec<u16> = std::ffi::OsStr::new(&msg)
+                .encode_wide()
+                .chain(Some(0))
+                .collect();
             windows::Win32::UI::WindowsAndMessaging::MessageBoxW(
                 None,
                 windows::core::PCWSTR(text.as_ptr()),
                 windows::core::PCWSTR(title.as_ptr()),
-                windows::Win32::UI::WindowsAndMessaging::MB_OK | windows::Win32::UI::WindowsAndMessaging::MB_ICONERROR,
+                windows::Win32::UI::WindowsAndMessaging::MB_OK
+                    | windows::Win32::UI::WindowsAndMessaging::MB_ICONERROR,
             );
         }
     }));
@@ -77,8 +84,24 @@ fn main() {
                 let _ = window.set_icon(icon.clone());
             }
 
+            // Clean up any orphaned temporary files from crashed or aborted prior sessions
+            std::thread::spawn(|| {
+                let cleaned = archive_helper_core::cleanup_orphaned_temp_files();
+                if !cleaned.is_empty() {
+                    eprintln!(
+                        "Cleaned up {} orphaned temporary file(s) from previous session",
+                        cleaned.len()
+                    );
+                }
+            });
+
             // Apply saved Always on Top
-            let always_on_top = app.state::<AppState>().settings.lock().unwrap().always_on_top;
+            let always_on_top = app
+                .state::<AppState>()
+                .settings
+                .lock()
+                .unwrap()
+                .always_on_top;
             if always_on_top {
                 let _ = window.set_always_on_top(true);
             }
@@ -99,7 +122,11 @@ fn main() {
                     let caption_color: u32 = 0x00161616; // COLORREF 0x00BBGGRR matching #161616
                     unsafe {
                         let current_style = GetWindowLongW(hwnd, GWL_STYLE);
-                        let _ = SetWindowLongW(hwnd, GWL_STYLE, current_style & !(WS_MAXIMIZEBOX.0 as i32));
+                        let _ = SetWindowLongW(
+                            hwnd,
+                            GWL_STYLE,
+                            current_style & !(WS_MAXIMIZEBOX.0 as i32),
+                        );
 
                         let _ = DwmSetWindowAttribute(
                             hwnd,
@@ -119,7 +146,20 @@ fn main() {
 
             // Route Windows Drag and Drop events to WebView with logical coordinates
             let window_clone = window.clone();
+            let app_handle_close = app.handle().clone();
             window.on_window_event(move |event| {
+                if let WindowEvent::CloseRequested { .. } = event {
+                    if let Some(token) = app_handle_close
+                        .state::<AppState>()
+                        .current_cancel_token
+                        .lock()
+                        .unwrap()
+                        .as_ref()
+                    {
+                        token.cancel();
+                    }
+                }
+
                 if let WindowEvent::DragDrop(ref dd) = event {
                     let scale = window_clone.scale_factor().unwrap_or(1.0);
                     match dd {
