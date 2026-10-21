@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use crate::state::{AppSettings, AppState};
 use archive_helper_core::batch::{BatchCoordinator, BatchTask, BatchTaskResult};
 use archive_helper_core::extract::UnzipOptions;
 use archive_helper_core::fs::validate_archive_name as core_validate_archive_name;
@@ -6,8 +6,8 @@ use archive_helper_core::progress::{CancellationToken, OperationStage};
 use archive_helper_core::scanner::compute_selection_root;
 use archive_helper_core::zip::ZipOptions;
 use serde::Serialize;
+use std::path::{Path, PathBuf};
 use tauri::{AppHandle, Emitter, Manager, State};
-use crate::state::{AppSettings, AppState};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct QueueItemInit {
@@ -67,6 +67,9 @@ fn quick_scan_zip(path: &Path) -> (u64, usize) {
 
 fn quick_scan_folder(path: &Path) -> (u64, usize) {
     if path.is_file() {
+        if archive_helper_core::is_archive_helper_temp_file(path) {
+            return (0, 0);
+        }
         let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
         return (size, 1);
     }
@@ -97,7 +100,9 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
             let mut num_a: u64 = 0;
             while let Some(&d) = a_chars.peek() {
                 if d.is_ascii_digit() {
-                    num_a = num_a.saturating_mul(10).saturating_add((d as u8 - b'0') as u64);
+                    num_a = num_a
+                        .saturating_mul(10)
+                        .saturating_add((d as u8 - b'0') as u64);
                     a_chars.next();
                 } else {
                     break;
@@ -106,7 +111,9 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
             let mut num_b: u64 = 0;
             while let Some(&d) = b_chars.peek() {
                 if d.is_ascii_digit() {
-                    num_b = num_b.saturating_mul(10).saturating_add((d as u8 - b'0') as u64);
+                    num_b = num_b
+                        .saturating_mul(10)
+                        .saturating_add((d as u8 - b'0') as u64);
                     b_chars.next();
                 } else {
                     break;
@@ -130,8 +137,14 @@ fn natural_cmp(a: &str, b: &str) -> std::cmp::Ordering {
 
 fn sort_paths_naturally(items: &mut [String]) {
     items.sort_by(|a, b| {
-        let name_a = Path::new(a).file_name().unwrap_or_default().to_string_lossy();
-        let name_b = Path::new(b).file_name().unwrap_or_default().to_string_lossy();
+        let name_a = Path::new(a)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
+        let name_b = Path::new(b)
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy();
         natural_cmp(&name_a, &name_b)
     });
 }
@@ -213,8 +226,15 @@ pub fn restart_as_admin(_app: AppHandle) {
     {
         use std::os::windows::ffi::OsStrExt;
         if let Ok(current_exe) = std::env::current_exe() {
-            let exe_wide: Vec<u16> = current_exe.as_os_str().encode_wide().chain(Some(0)).collect();
-            let op_wide: Vec<u16> = std::ffi::OsStr::new("runas").encode_wide().chain(Some(0)).collect();
+            let exe_wide: Vec<u16> = current_exe
+                .as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect();
+            let op_wide: Vec<u16> = std::ffi::OsStr::new("runas")
+                .encode_wide()
+                .chain(Some(0))
+                .collect();
             unsafe {
                 let res = windows::Win32::UI::Shell::ShellExecuteW(
                     None,
@@ -233,7 +253,10 @@ pub fn restart_as_admin(_app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn exit_app(app: AppHandle) {
+pub fn exit_app(app: AppHandle, state: State<'_, AppState>) {
+    if let Some(token) = state.current_cancel_token.lock().unwrap().as_ref() {
+        token.cancel();
+    }
     app.exit(0);
 }
 
@@ -292,7 +315,11 @@ pub async fn start_zip_batch(
                 .enumerate()
                 .map(|(i, p)| {
                     let path = PathBuf::from(p);
-                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
                     let (b, f) = quick_scan_folder(&path);
                     QueueItemInit {
                         id: format!("item_{}", i),
@@ -345,7 +372,8 @@ pub async fn start_zip_batch(
 
         let total_items = tasks.len();
         let coordinator = BatchCoordinator::new(get_worker_count(fast));
-        let (progress_rx, result_rx) = coordinator.execute_batch(tasks, Some((*cancel_token).clone()));
+        let (progress_rx, result_rx) =
+            coordinator.execute_batch(tasks, Some((*cancel_token).clone()));
 
         let completed_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let completed_count_clone = completed_count.clone();
@@ -376,7 +404,8 @@ pub async fn start_zip_batch(
                         current_item_name: Some(progress.item_name),
                         current_file_name: progress.current_file,
                         bytes_per_sec: progress.bytes_per_sec,
-                        item_index: completed_count_clone.load(std::sync::atomic::Ordering::Relaxed),
+                        item_index: completed_count_clone
+                            .load(std::sync::atomic::Ordering::Relaxed),
                         total_items,
                     },
                 );
@@ -484,7 +513,11 @@ pub async fn start_unzip_batch(
             .enumerate()
             .map(|(i, p)| {
                 let path = PathBuf::from(p);
-                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 let (b, f) = quick_scan_zip(&path);
                 QueueItemInit {
                     id: format!("item_{}", i),
@@ -526,7 +559,8 @@ pub async fn start_unzip_batch(
 
         let total_items = tasks.len();
         let coordinator = BatchCoordinator::new(get_worker_count(fast));
-        let (progress_rx, result_rx) = coordinator.execute_batch(tasks, Some((*cancel_token).clone()));
+        let (progress_rx, result_rx) =
+            coordinator.execute_batch(tasks, Some((*cancel_token).clone()));
 
         let completed_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let completed_count_clone = completed_count.clone();
@@ -557,7 +591,8 @@ pub async fn start_unzip_batch(
                         current_item_name: Some(progress.item_name),
                         current_file_name: progress.current_file,
                         bytes_per_sec: progress.bytes_per_sec,
-                        item_index: completed_count_clone.load(std::sync::atomic::Ordering::Relaxed),
+                        item_index: completed_count_clone
+                            .load(std::sync::atomic::Ordering::Relaxed),
                         total_items,
                     },
                 );

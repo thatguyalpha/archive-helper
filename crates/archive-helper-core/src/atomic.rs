@@ -25,9 +25,12 @@ impl AtomicFileWriter {
     /// Creates a new `AtomicFileWriter` with a custom buffer size.
     pub fn with_buffer_size(target_path: &Path, buffer_size: usize) -> io::Result<Self> {
         let target_path = target_path.to_path_buf();
-        let parent_dir = target_path
-            .parent()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Target path has no parent directory"))?;
+        let parent_dir = target_path.parent().ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Target path has no parent directory",
+            )
+        })?;
 
         // Ensure parent directory exists
         std::fs::create_dir_all(parent_dir)?;
@@ -41,6 +44,9 @@ impl AtomicFileWriter {
             .write(true)
             .create_new(true)
             .open(&temp_path)?;
+
+        // Register active temporary file in the journal for crash/kill resilience
+        crate::journal::register_temp_file(&temp_path);
 
         let writer = BufWriter::with_capacity(buffer_size, file);
 
@@ -83,6 +89,7 @@ impl AtomicFileWriter {
         // Atomically replace destination file
         std::fs::rename(&self.temp_path, &self.target_path)?;
         self.committed = true;
+        crate::journal::unregister_temp_file(&self.temp_path);
         Ok(self.target_path.clone())
     }
 
@@ -99,6 +106,7 @@ impl AtomicFileWriter {
             if self.temp_path.exists() {
                 let _ = std::fs::remove_file(&self.temp_path);
             }
+            crate::journal::unregister_temp_file(&self.temp_path);
         }
     }
 }
@@ -107,7 +115,10 @@ impl Write for AtomicFileWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         match &mut self.writer {
             Some(w) => w.write(buf),
-            None => Err(io::Error::new(io::ErrorKind::NotConnected, "Writer already closed")),
+            None => Err(io::Error::new(
+                io::ErrorKind::NotConnected,
+                "Writer already closed",
+            )),
         }
     }
 
@@ -158,9 +169,15 @@ mod tests {
         }
 
         // Neither the target nor the temp file should exist
-        assert!(!target.exists(), "Target file must not exist if uncommitted");
+        assert!(
+            !target.exists(),
+            "Target file must not exist if uncommitted"
+        );
         let remaining_files: Vec<_> = std::fs::read_dir(dir.path())?.collect();
-        assert!(remaining_files.is_empty(), "Temp file should be cleanly removed on drop");
+        assert!(
+            remaining_files.is_empty(),
+            "Temp file should be cleanly removed on drop"
+        );
         Ok(())
     }
 }

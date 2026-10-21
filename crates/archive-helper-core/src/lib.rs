@@ -17,6 +17,7 @@ pub mod batch;
 pub mod error;
 pub mod extract;
 pub mod fs;
+pub mod journal;
 pub mod progress;
 pub mod scanner;
 pub mod zip;
@@ -25,13 +26,17 @@ pub mod zip;
 pub use atomic::AtomicFileWriter;
 pub use batch::{BatchCoordinator, BatchTask, BatchTaskResult};
 pub use error::{ArchiveError, ArchiveWarning};
-pub use extract::{extract_archive, inspect_zip, ExtractResult, UnzipOptions};
+pub use extract::{ExtractResult, UnzipOptions, extract_archive, inspect_zip};
 pub use fs::{
     filter_redundant_sources, is_same_or_child_path, normalize_extended_path, open_resilient_read,
     safe_delete_dir_all, safe_delete_file, strip_extended_prefix, validate_archive_name,
 };
+pub use journal::{
+    cleanup_orphaned_temp_files, cleanup_temp_files_in_dir, is_archive_helper_temp_file,
+    register_temp_file, unregister_temp_file,
+};
 pub use progress::{CancellationToken, OperationStage, ProgressReporter, ProgressUpdate};
 pub use scanner::{
-    compute_selection_root, scan_sources, ArchiveExtension, DiscoveredEntry, PreScanResult,
+    ArchiveExtension, DiscoveredEntry, PreScanResult, compute_selection_root, scan_sources,
 };
-pub use zip::{create_archive, system_time_to_zip_datetime, ArchiveResult, ZipOptions};
+pub use zip::{ArchiveResult, ZipOptions, create_archive, system_time_to_zip_datetime};
