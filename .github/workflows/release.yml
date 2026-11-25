@@ -136,6 +136,10 @@ jobs:
           "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Publishing version: v$version"
 
+      - name: Rust cache
+        if: steps.decide.outputs.release == 'true'
+        uses: Swatinem/rust-cache@v2
+
       - name: Build release executable
         if: steps.decide.outputs.release == 'true'
         run: cargo build --release
