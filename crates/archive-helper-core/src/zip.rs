@@ -236,6 +236,12 @@ pub fn create_archive(
                         return Err(ArchiveError::Io(e));
                     }
                     bytes_written += n as u64;
+                    reporter.send_throttled(
+                        OperationStage::Archiving,
+                        bytes_written,
+                        files_archived,
+                        None,
+                    );
                 }
                 Err(e) => {
                     let warn = ArchiveWarning::FileReadSkipped {

@@ -256,6 +256,7 @@ pub fn extract_archive(
         let (out_file, out_path) = create_collision_safe_file(&base_out_path)?;
         let mut writer = BufWriter::with_capacity(512 * 1024, out_file);
 
+        let current_file = desc.enclosed_path.to_string_lossy().into_owned();
         let mut entry = zip.by_index(desc.index)?;
         loop {
             if let Some(token) = cancellation {
@@ -268,6 +269,12 @@ pub fn extract_archive(
             }
             writer.write_all(&buf[..n])?;
             bytes_extracted += n as u64;
+            reporter.send_throttled(
+                OperationStage::Extracting,
+                bytes_extracted,
+                files_extracted,
+                Some(current_file.clone()),
+            );
         }
         writer.flush()?;
         drop(writer);
@@ -283,7 +290,7 @@ pub fn extract_archive(
             OperationStage::Extracting,
             bytes_extracted,
             files_extracted,
-            Some(desc.enclosed_path.to_string_lossy().to_string()),
+            Some(current_file),
         );
     }
 
